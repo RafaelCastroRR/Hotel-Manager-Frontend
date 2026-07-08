@@ -2,7 +2,7 @@ import axios from "axios";
 import useAuthStore from "../shared/stores/authStore";
 
 const apiClient = axios.create({
-  baseURL: "https://hotel-manager-backend-2yo5.onrender.com",
+  baseURL: "https://api-hotel.cristianlima.dev",
   timeout: 5000,
 });
 
@@ -11,7 +11,7 @@ export const login = async (data) => {
     const response = await apiClient.post("/auth/login", data);
     const { token, user } = response.data;
 
-    
+
     useAuthStore.getState().login(user, token);
 
     return {
@@ -138,7 +138,7 @@ export const getManagers = async () => {
   }
 };
 
-export const getUsers = async() => {
+export const getUsers = async () => {
   try {
     const response = await apiClient.get("/users")
     return response.data
@@ -150,7 +150,7 @@ export const getUsers = async() => {
   }
 }
 
-export const updateUser = async(id, data) => {
+export const updateUser = async (id, data) => {
   try {
     const response = await apiClient.put(`/users/${id}`, data)
     return response.data
@@ -162,7 +162,7 @@ export const updateUser = async(id, data) => {
   }
 }
 
-export const deleteUser = async(id) => {
+export const deleteUser = async (id) => {
   try {
     const response = await apiClient.delete(`/users/${id}`)
     return response.data
@@ -174,7 +174,7 @@ export const deleteUser = async(id) => {
   }
 }
 
-export const enableRoom = async(id) => {
+export const enableRoom = async (id) => {
   try {
     const response = await apiClient.put(`/rooms/${id}/enable`)
     return response.data
@@ -186,7 +186,7 @@ export const enableRoom = async(id) => {
   }
 }
 
-export const getActiveUsersByHotel = async(hotelId) => {
+export const getActiveUsersByHotel = async (hotelId) => {
   try {
     const response = await apiClient.get(`/reservations/active-users/${hotelId}`)
     return response.data
@@ -441,7 +441,7 @@ export const updateRoom = async (uid, formData) => {
 
 export const toggleRoomState = async (uid, data) => {
   try {
-    const response = await apiClient.patch(`/rooms/${uid}`, {available: data});
+    const response = await apiClient.patch(`/rooms/${uid}`, { available: data });
     return response.data;
   } catch (e) {
     return {

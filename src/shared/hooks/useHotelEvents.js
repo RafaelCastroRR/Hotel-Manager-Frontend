@@ -1,7 +1,14 @@
 import { useToast } from "@chakra-ui/react";
-import axios from "axios";
 import { useCallback, useEffect, useState } from "react";
 import useAuthStore from "../stores/authStore";
+import {
+  getHotelByManager,
+  getEventsByHotel,
+  createEvent as createEventRequest,
+  editEvent as editEventRequest,
+  cancelEvent as cancelEventRequest,
+  getEventById,
+} from "../../services/api";
 
 const useHotelEvents = () => {
   const [events, setEvents] = useState([]);
@@ -14,27 +21,17 @@ const useHotelEvents = () => {
   const toast = useToast();
   const token = useAuthStore((state) => state.getToken());
 
-  const getHeaders = () => {
-    if (!token) return {};
-    return { "x-token": token };
-  };
-
   const fetchHotel = useCallback(async () => {
-    if (!token) return null;
-    try {
-      const response = await axios.get(
-        "http://localhost:3000/hotelManager/v1/hotels/hotel-by-manager",
-        { headers: getHeaders() }
-      );
-      const h = response.data.hotel;
-      setHotel(h);
-      setHotelId(h.uid || h._id);
-      return h;
-    } catch (err) {
-      console.error("❌ Error al obtener el hotel:", err.message);
+    const response = await getHotelByManager();
+    if (response.error) {
+      console.error("Error al obtener el hotel:", response.e.message);
       return null;
     }
-  }, [token]);
+    const h = response.hotel;
+    setHotel(h);
+    setHotelId(h.uid || h._id);
+    return h;
+  }, []);
 
   const fetchEvents = useCallback(async (hotelIdToUse) => {
     if (!hotelIdToUse) {
@@ -44,14 +41,9 @@ const useHotelEvents = () => {
     }
 
     setLoading(true);
-    try {
-      const response = await axios.get(
-        `http://localhost:3000/hotelManager/v1/events/hotels/${hotelIdToUse}/events`
-      );
-      setEvents(Array.isArray(response.data) ? response.data : []);
-      setError(null);
-    } catch (err) {
-      const msg = err.response?.data?.msg || err.message;
+    const response = await getEventsByHotel(hotelIdToUse);
+    if (response.error) {
+      const msg = response.e.response?.data?.msg || response.e.message;
       setError(msg);
       toast({
         title: "Error al cargar eventos",
@@ -61,9 +53,11 @@ const useHotelEvents = () => {
         isClosable: true,
       });
       setEvents([]);
-    } finally {
-      setLoading(false);
+    } else {
+      setEvents(Array.isArray(response) ? response : []);
+      setError(null);
     }
+    setLoading(false);
   }, [toast]);
 
   useEffect(() => {
@@ -79,7 +73,7 @@ const useHotelEvents = () => {
       const idToUse = currentHotel?.uid || currentHotel?._id || hotelId;
 
       if (!idToUse) {
-        console.warn("⚠️ No se encontró hotelId para eventos.");
+        console.warn("No se encontró hotelId para eventos.");
         setLoading(false);
         return;
       }
@@ -102,22 +96,9 @@ const useHotelEvents = () => {
       return false;
     }
 
-    try {
-      await axios.post(
-        `http://localhost:3000/hotelManager/v1/events/hotels/${hotelId}/events`,
-        eventData,
-        { headers: getHeaders() }
-      );
-      toast({
-        title: "Evento creado",
-        status: "success",
-        duration: 3000,
-        isClosable: true,
-      });
-      await fetchEvents(hotelId);
-      return true;
-    } catch (err) {
-      const msg = err.response?.data?.msg || err.message;
+    const response = await createEventRequest(eventData, hotelId);
+    if (response.error) {
+      const msg = response.e.response?.data?.msg || response.e.message;
       toast({
         title: "Error al crear evento",
         description: msg,
@@ -127,27 +108,22 @@ const useHotelEvents = () => {
       });
       return false;
     }
+    toast({
+      title: "Evento creado",
+      status: "success",
+      duration: 3000,
+      isClosable: true,
+    });
+    await fetchEvents(hotelId);
+    return true;
   };
 
   const updateEvent = async (eventId, eventData) => {
     if (!eventId) return false;
 
-    try {
-      await axios.put(
-        `http://localhost:3000/hotelManager/v1/events/${eventId}`,
-        eventData,
-        { headers: getHeaders() }
-      );
-      toast({
-        title: "Evento actualizado",
-        status: "success",
-        duration: 3000,
-        isClosable: true,
-      });
-      if (hotelId) await fetchEvents(hotelId);
-      return true;
-    } catch (err) {
-      const msg = err.response?.data?.msg || err.message;
+    const response = await editEventRequest(eventId, eventData);
+    if (response.error) {
+      const msg = response.e.response?.data?.msg || response.e.message;
       toast({
         title: "Error al actualizar evento",
         description: msg,
@@ -157,26 +133,22 @@ const useHotelEvents = () => {
       });
       return false;
     }
+    toast({
+      title: "Evento actualizado",
+      status: "success",
+      duration: 3000,
+      isClosable: true,
+    });
+    if (hotelId) await fetchEvents(hotelId);
+    return true;
   };
 
   const deleteEvent = async (eventId) => {
     if (!eventId) return false;
 
-    try {
-      await axios.delete(
-        `http://localhost:3000/hotelManager/v1/events/${eventId}`,
-        { headers: getHeaders() }
-      );
-      toast({
-        title: "Evento eliminado",
-        status: "success",
-        duration: 3000,
-        isClosable: true,
-      });
-      if (hotelId) await fetchEvents(hotelId);
-      return true;
-    } catch (err) {
-      const msg = err.response?.data?.msg || err.message;
+    const response = await cancelEventRequest(eventId);
+    if (response.error) {
+      const msg = response.e.response?.data?.msg || response.e.message;
       toast({
         title: "Error al eliminar evento",
         description: msg,
@@ -186,20 +158,22 @@ const useHotelEvents = () => {
       });
       return false;
     }
+    toast({
+      title: "Evento eliminado",
+      status: "success",
+      duration: 3000,
+      isClosable: true,
+    });
+    if (hotelId) await fetchEvents(hotelId);
+    return true;
   };
 
   const getEventDetails = async (eventId) => {
     if (!eventId) return null;
 
-    try {
-      const response = await axios.get(
-        `http://localhost:3000/hotelManager/v1/events/${eventId}`,
-        { headers: getHeaders() }
-      );
-      setEventDetails(response.data);
-      return response.data;
-    } catch (err) {
-      const msg = err.response?.data?.msg || err.message;
+    const response = await getEventById(eventId);
+    if (response.error) {
+      const msg = response.e.response?.data?.msg || response.e.message;
       toast({
         title: "Error al obtener detalles del evento",
         description: msg,
@@ -209,6 +183,8 @@ const useHotelEvents = () => {
       });
       return null;
     }
+    setEventDetails(response);
+    return response;
   };
 
   return {
@@ -217,12 +193,12 @@ const useHotelEvents = () => {
     hotelId,
     loading,
     error,
-    eventDetails,       
+    eventDetails,
     fetchEvents,
     createEvent,
     updateEvent,
-    deleteEvent,       
-    getEventDetails,    
+    deleteEvent,
+    getEventDetails,
   };
 };
 

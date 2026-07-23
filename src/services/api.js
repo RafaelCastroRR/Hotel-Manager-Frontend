@@ -2,7 +2,7 @@ import axios from "axios";
 import useAuthStore from "../shared/stores/authStore";
 
 const apiClient = axios.create({
-  baseURL: "https://hotel-api.internal.jollysand-b12045b0.northcentralus.azurecontainerapps.io",
+  baseURL: "https://hotel-api.jollysand-b12045b0.northcentralus.azurecontainerapps.io",
   timeout: 5000,
 });
 

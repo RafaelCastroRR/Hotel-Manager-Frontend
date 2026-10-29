@@ -2,8 +2,8 @@ import axios from "axios";
 import useAuthStore from "../shared/stores/authStore";
 
 const apiClient = axios.create({
-  baseURL: "https://hotel-api.jollysand-b12045b0.northcentralus.azurecontainerapps.io",
-  timeout: 5000,
+baseURL: "/api",
+ timeout: 5000,
 });
 
 export const login = async (data) => {
@@ -344,6 +344,18 @@ export const editEvent = async (id, data) => {
 export const cancelEvent = async (id) => {
   try {
     const response = await apiClient.delete(`/events/${id}`);
+    return response.data;
+  } catch (e) {
+    return {
+      error: true,
+      e,
+    };
+  }
+};
+
+export const changeEventApproval = async (id, aprobacion) => {
+  try {
+    const response = await apiClient.patch(`/events/${id}/approval`, { aprobacion });
     return response.data;
   } catch (e) {
     return {

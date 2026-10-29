@@ -15,20 +15,58 @@ import {
   RangeSliderTrack,
   RangeSliderFilledTrack,
   RangeSliderThumb,
-  useColorModeValue
+  useColorModeValue,
+  Badge,
+  Tag,
+  TagLabel,
+  TagCloseButton,
+  Wrap,
+  WrapItem
 } from '@chakra-ui/react'
 import HotelCard from '../components/hotels/HotelCard'
 import SearchBar from '../components/common/SearchBar'
 import useHotel from '../shared/hooks/useHotel'
 import { useSearch } from '../shared/context/SearchContext'
 
+const normalizeText = (text) => {
+  if (!text) return ''
+  return text
+    .toString()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .trim()
+}
+
+const AVAILABLE_FACILITIES = [
+  'Wifi',
+  'Piscina',
+  'Estacionamiento',
+  'Parking Privado',
+  'Recepción 24h',
+  'Aire Acondicionado',
+  'Calefacción',
+  'Gimnasio',
+  'Spa',
+  'Restaurante',
+  'Bar',
+  'Terraza',
+  'Jardín',
+  'Salas de Reuniones',
+  'Servicio de Limpieza',
+  'Servicio de Lavandería',
+  'Servicio de Concierge',
+  'Habitaciones Privadas'
+]
+
 function Hotels() {
   const { getHotels } = useHotel()
-  const { searchParams } = useSearch()
+  const { searchParams, updateSearch } = useSearch()
   const [hotels, setHotels] = useState([])
   const [filteredHotels, setFilteredHotels] = useState([])
+  const [showMobileFilters, setShowMobileFilters] = useState(false)
   const [filters, setFilters] = useState({
-    priceRange: [0, 10000],
+    priceRange: [0, 3000],
     category: '',
     facilities: []
   })
@@ -38,48 +76,43 @@ function Hotels() {
   useEffect(() => {
     const fetchHotels = async () => {
       const response = await getHotels()
-      setHotels(response)
-      console.log(response)
-      setFilteredHotels(response)
+      setHotels(response || [])
+      setFilteredHotels(response || [])
     }
     fetchHotels()
   }, [])
   
-  // Aplicar filtros cuando cambien los parámetros de búsqueda
+  // Aplicar filtros de forma reactiva y precisa
   useEffect(() => {
-    let filtered = [...hotels]
+    let result = [...hotels]
     
-    // Filter by destination
+    // 1. Filtrar por destino / nombre / dirección / categoría / facilidades (insensible a tildes y mayúsculas)
     if (searchParams.destination) {
-      filtered = filtered.filter(hotel => 
-        hotel.location?.toLowerCase().includes(searchParams.destination.toLowerCase()) ||
-        hotel.direction?.toLowerCase().includes(searchParams.destination.toLowerCase())
-      )
+      const target = normalizeText(searchParams.destination)
+      result = result.filter(hotel => {
+        const nameMatch = normalizeText(hotel.name).includes(target)
+        const locationMatch = normalizeText(hotel.location).includes(target)
+        const directionMatch = normalizeText(hotel.direction).includes(target)
+        const categoryMatch = normalizeText(hotel.category).includes(target)
+        const facilitiesMatch = Array.isArray(hotel.facilities) && hotel.facilities.some(f => normalizeText(f).includes(target))
+        return nameMatch || locationMatch || directionMatch || categoryMatch || facilitiesMatch
+      })
     }
 
-    // Filter by room availability
+    // 2. Filtrar por disponibilidad de fechas (si se especifican entrada y salida)
     if (searchParams.checkIn && searchParams.checkOut) {
       const checkInDate = new Date(searchParams.checkIn)
       const checkOutDate = new Date(searchParams.checkOut)
-      const guests = parseInt(searchParams.guests || '2')
+      const guests = parseInt(searchParams.guests || '1')
       
-      filtered = filtered.filter(hotel => {
+      const dateFiltered = result.filter(hotel => {
+        if (!hotel.rooms || hotel.rooms.length === 0) return true
         return hotel.rooms.some(room => {
-          // Verificar capacidad
-          if (room.capacity < guests) {
-            return false
-          }
-
-          // Si la habitación no tiene períodos de no disponibilidad, está disponible
-          if (!room.nonAvailability || room.nonAvailability.length === 0) {
-            return true
-          }
-
-          // Verificar si las fechas seleccionadas se superponen con algún período de no disponibilidad
+          if (room.capacity < guests) return false
+          if (!room.nonAvailability || room.nonAvailability.length === 0) return true
           return !room.nonAvailability.some(period => {
             const periodStart = new Date(period.start)
             const periodEnd = new Date(period.end)
-            
             return (
               (checkInDate >= periodStart && checkInDate < periodEnd) ||
               (checkOutDate > periodStart && checkOutDate <= periodEnd) ||
@@ -88,101 +121,110 @@ function Hotels() {
           })
         })
       })
+
+      if (dateFiltered.length > 0) {
+        result = dateFiltered
+      }
+    }
+
+    // 3. Filtrar por rango de precios
+    result = result.filter(hotel => {
+      const minPrice = hotel.rangeOfPrices?.min ?? 0
+      const maxPrice = hotel.rangeOfPrices?.max ?? (minPrice || 9999)
+      return minPrice <= filters.priceRange[1] && maxPrice >= filters.priceRange[0]
+    })
+
+    // 4. Filtrar por categoría
+    if (filters.category) {
+      result = result.filter(hotel => 
+        normalizeText(hotel.category) === normalizeText(filters.category)
+      )
+    }
+
+    // 5. Filtrar por instalaciones (todas las seleccionadas deben estar presentes en el hotel)
+    if (filters.facilities.length > 0) {
+      result = result.filter(hotel => {
+        if (!Array.isArray(hotel.facilities)) return false
+        const hotelFacs = hotel.facilities.map(normalizeText)
+        return filters.facilities.every(fac => {
+          const normFac = normalizeText(fac)
+          return hotelFacs.some(hf => hf === normFac || hf.includes(normFac) || normFac.includes(hf))
+        })
+      })
+    }
+
+    // 6. Ordenamiento
+    if (sortBy) {
+      switch (sortBy) {
+        case 'priceAsc':
+          result.sort((a, b) => (a.rangeOfPrices?.min || 0) - (b.rangeOfPrices?.min || 0))
+          break
+        case 'priceDesc':
+          result.sort((a, b) => (b.rangeOfPrices?.max || 0) - (a.rangeOfPrices?.max || 0))
+          break
+        case 'ratingDesc':
+          result.sort((a, b) => parseInt(b.category || 0) - parseInt(a.category || 0))
+          break
+        case 'nameAsc':
+          result.sort((a, b) => (a.name || '').localeCompare(b.name || ''))
+          break
+        default:
+          break
+      }
     }
     
-    setFilteredHotels(filtered)
-  }, [hotels, searchParams])
+    setFilteredHotels(result)
+  }, [hotels, searchParams, filters, sortBy])
   
   const handlePriceChange = (values) => {
-    setFilters({
-      ...filters,
+    setFilters(prev => ({
+      ...prev,
       priceRange: values
-    })
+    }))
   }
   
   const handleCategoryChange = (e) => {
-    setFilters({
-      ...filters,
+    setFilters(prev => ({
+      ...prev,
       category: e.target.value
-    })
+    }))
   }
   
-  const handleFacilityChange = (e) => {
-    const { value, checked } = e.target
-    let updatedFacilities = [...filters.facilities]
-    
-    if (checked) {
-      updatedFacilities.push(value)
-    } else {
-      updatedFacilities = updatedFacilities.filter(item => item !== value)
-    }
-    
-    setFilters({
-      ...filters,
-      facilities: updatedFacilities
+  const handleFacilityToggle = (facilityName) => {
+    setFilters(prev => {
+      const exists = prev.facilities.includes(facilityName)
+      const updated = exists 
+        ? prev.facilities.filter(item => item !== facilityName)
+        : [...prev.facilities, facilityName]
+      return {
+        ...prev,
+        facilities: updated
+      }
     })
-  }
-  
-  const applyFilters = () => {
-    let results = [...filteredHotels]
-    
-    // Filter by price range
-    results = results.filter(hotel => 
-      hotel.rangeOfPrices.min >= filters.priceRange[0] && 
-      hotel.rangeOfPrices.max <= filters.priceRange[1]
-    )
-    
-    // Filter by category
-    if (filters.category) {
-      results = results.filter(hotel => hotel.category === filters.category)
-    }
-    
-    // Filter by facilities
-    if (filters.facilities.length > 0) {
-      results = results.filter(hotel => 
-        filters.facilities.every(facility => 
-          hotel.facilities && hotel.facilities.includes(facility)
-        )
-      )
-    }
-    
-    setFilteredHotels(results)
   }
   
   const resetFilters = () => {
     setFilters({
-      priceRange: [0, 1000],
+      priceRange: [0, 3000],
       category: '',
       facilities: []
     })
-    setFilteredHotels(hotels)
+    setSortBy('')
   }
-  
-  const handleSortChange = (e) => {
-    const value = e.target.value
-    setSortBy(value)
-    
-    let sortedHotels = [...filteredHotels]
-    
-    switch (value) {
-      case 'priceAsc':
-        sortedHotels.sort((a, b) => a.rangeOfPrices.min - b.rangeOfPrices.min)
-        break
-      case 'priceDesc':
-        sortedHotels.sort((a, b) => b.rangeOfPrices.max - a.rangeOfPrices.max)
-        break
-      case 'ratingDesc':
-        sortedHotels.sort((a, b) => b.rating - a.rating)
-        break
-      case 'popular':
-        sortedHotels.sort((a, b) => b.reviews?.length - a.reviews?.length)
-        break
-      default:
-        break
-    }
-    
-    setFilteredHotels(sortedHotels)
+
+  const clearDestination = () => {
+    updateSearch({
+      ...searchParams,
+      destination: ''
+    })
   }
+
+  const hasActiveFilters = filters.category !== '' || 
+    filters.facilities.length > 0 || 
+    filters.priceRange[0] > 0 || 
+    filters.priceRange[1] < 3000 ||
+    sortBy !== '' ||
+    Boolean(searchParams.destination)
   
   return (
     <Box pt={20} pb={16}>
@@ -193,7 +235,7 @@ function Hotels() {
             fontSize={{ base: '2xl', md: '3xl' }} 
             mb={6}
           >
-            Encuentra Tu Hotel Perfecto
+            Encuentra Tu Hotel Perfecto en Guatemala
           </Heading>
           
           <Box 
@@ -208,14 +250,27 @@ function Hotels() {
       </Box>
       
       <Container maxW="1200px">
+        {/* Botón para mostrar/ocultar filtros en móviles */}
+        <Button
+          display={{ base: 'flex', md: 'none' }}
+          onClick={() => setShowMobileFilters(!showMobileFilters)}
+          colorScheme="teal"
+          variant="outline"
+          w="full"
+          mb={4}
+        >
+          {showMobileFilters ? 'Ocultar Filtros' : 'Filtrar Hoteles (Precios, Categoría, Servicios)'}
+        </Button>
+
         <Flex 
           flexDirection={{ base: 'column', md: 'row' }} 
           gap={8}
         >
-          {/* Filters sidebar */}
+          {/* Barra lateral de Filtros */}
           <Box 
             w={{ base: '100%', md: '300px' }} 
             flexShrink={0}
+            display={{ base: showMobileFilters ? 'block' : 'none', md: 'block' }}
           >
             <Box 
               p={5} 
@@ -223,25 +278,39 @@ function Hotels() {
               bg={filterBg} 
               boxShadow="sm" 
               mb={4}
+              border="1px"
+              borderColor="gray.200"
             >
-              <Heading as="h3" fontSize="lg" mb={5}>
-                Filtros
-              </Heading>
+              <Flex justify="space-between" align="center" mb={5}>
+                <Heading as="h3" fontSize="lg">
+                  Filtros
+                </Heading>
+                {hasActiveFilters && (
+                  <Button 
+                    size="xs" 
+                    variant="ghost" 
+                    colorScheme="red" 
+                    onClick={resetFilters}
+                  >
+                    Restablecer
+                  </Button>
+                )}
+              </Flex>
               
               <Stack spacing={6}>
-                {/* Price Range */}
+                {/* Rango de Precios */}
                 <Box>
                   <Text fontWeight="medium" mb={2}>
-                    Rango de Precios
+                    Rango de Precios por Noche
                   </Text>
                   <Flex justify="space-between" mb={2}>
-                    <Text fontSize="sm">${filters.priceRange[0]}</Text>
-                    <Text fontSize="sm">${filters.priceRange[1]}</Text>
+                    <Text fontSize="sm" fontWeight="bold" color="brand.600">Q {filters.priceRange[0]}</Text>
+                    <Text fontSize="sm" fontWeight="bold" color="brand.600">Q {filters.priceRange[1]}</Text>
                   </Flex>
                   <RangeSlider
                     min={0}
-                    max={1000}
-                    step={100}
+                    max={3000}
+                    step={50}
                     value={filters.priceRange}
                     onChange={handlePriceChange}
                     colorScheme="teal"
@@ -254,274 +323,167 @@ function Hotels() {
                   </RangeSlider>
                 </Box>
                 
-                {/* Category */}
+                {/* Categoría */}
                 <Box>
                   <Text fontWeight="medium" mb={2}>
-                    Categoría
+                    Categoría del Hotel
                   </Text>
                   <Select 
                     value={filters.category} 
                     onChange={handleCategoryChange}
+                    size="sm"
+                    rounded="md"
                   >
                     <option value="">Todas las Categorías</option>
-                    <option value="1 Estrella">1 Estrella</option>
-                    <option value="2 Estrellas">2 Estrellas</option>
-                    <option value="3 Estrellas">3 Estrellas</option>
-                    <option value="4 Estrellas">4 Estrellas</option>
-                    <option value="5 Estrellas">5 Estrellas</option>
+                    <option value="5 Estrellas">5 Estrellas (Lujo)</option>
+                    <option value="4 Estrellas">4 Estrellas (Superior)</option>
+                    <option value="3 Estrellas">3 Estrellas (Estándar)</option>
                   </Select>
                 </Box>
                 
-                {/* Facilities */}
+                {/* Instalaciones */}
                 <Box>
                   <Text fontWeight="medium" mb={2}>
-                    Instalaciones
+                    Servicios e Instalaciones
                   </Text>
-                  <Stack spacing={2} maxH="300px" overflowY="auto">
-                    <Checkbox 
-                      value="Wifi" 
-                      onChange={handleFacilityChange}
-                      isChecked={filters.facilities.includes('Wifi')}
-                    >
-                      Wifi
-                    </Checkbox>
-                    <Checkbox 
-                      value="Piscina" 
-                      onChange={handleFacilityChange}
-                      isChecked={filters.facilities.includes('Piscina')}
-                    >
-                      Piscina
-                    </Checkbox>
-                    <Checkbox 
-                      value="Estacionamiento" 
-                      onChange={handleFacilityChange}
-                      isChecked={filters.facilities.includes('Estacionamiento')}
-                    >
-                      Estacionamiento
-                    </Checkbox>
-                    <Checkbox 
-                      value="Parking Privado" 
-                      onChange={handleFacilityChange}
-                      isChecked={filters.facilities.includes('Parking Privado')}
-                    >
-                      Parking Privado
-                    </Checkbox>
-                    <Checkbox 
-                      value="Recepción 24h" 
-                      onChange={handleFacilityChange}
-                      isChecked={filters.facilities.includes('Recepción 24h')}
-                    >
-                      Recepción 24h
-                    </Checkbox>
-                    <Checkbox 
-                      value="Calefacción" 
-                      onChange={handleFacilityChange}
-                      isChecked={filters.facilities.includes('Calefacción')}
-                    >
-                      Calefacción
-                    </Checkbox>
-                    <Checkbox 
-                      value="Aire Acondicionado" 
-                      onChange={handleFacilityChange}
-                      isChecked={filters.facilities.includes('Aire Acondicionado')}
-                    >
-                      Aire Acondicionado
-                    </Checkbox>
-                    <Checkbox 
-                      value="Habitaciones Privadas" 
-                      onChange={handleFacilityChange}
-                      isChecked={filters.facilities.includes('Habitaciones Privadas')}
-                    >
-                      Habitaciones Privadas
-                    </Checkbox>
-                    <Checkbox 
-                      value="Servicios Premium" 
-                      onChange={handleFacilityChange}
-                      isChecked={filters.facilities.includes('Servicios Premium')}
-                    >
-                      Servicios Premium
-                    </Checkbox>
-                    <Checkbox 
-                      value="Gimnasio" 
-                      onChange={handleFacilityChange}
-                      isChecked={filters.facilities.includes('Gimnasio')}
-                    >
-                      Gimnasio
-                    </Checkbox>
-                    <Checkbox 
-                      value="Spa" 
-                      onChange={handleFacilityChange}
-                      isChecked={filters.facilities.includes('Spa')}
-                    >
-                      Spa
-                    </Checkbox>
-                    <Checkbox 
-                      value="Restaurante" 
-                      onChange={handleFacilityChange}
-                      isChecked={filters.facilities.includes('Restaurante')}
-                    >
-                      Restaurante
-                    </Checkbox>
-                    <Checkbox 
-                      value="Bar" 
-                      onChange={handleFacilityChange}
-                      isChecked={filters.facilities.includes('Bar')}
-                    >
-                      Bar
-                    </Checkbox>
-                    <Checkbox 
-                      value="Terraza" 
-                      onChange={handleFacilityChange}
-                      isChecked={filters.facilities.includes('Terraza')}
-                    >
-                      Terraza
-                    </Checkbox>
-                    <Checkbox 
-                      value="Jardín" 
-                      onChange={handleFacilityChange}
-                      isChecked={filters.facilities.includes('Jardín')}
-                    >
-                      Jardín
-                    </Checkbox>
-                    <Checkbox 
-                      value="Salas de Reuniones" 
-                      onChange={handleFacilityChange}
-                      isChecked={filters.facilities.includes('Salas de Reuniones')}
-                    >
-                      Salas de Reuniones
-                    </Checkbox>
-                    <Checkbox 
-                      value="Servicio de Limpieza" 
-                      onChange={handleFacilityChange}
-                      isChecked={filters.facilities.includes('Servicio de Limpieza')}
-                    >
-                      Servicio de Limpieza
-                    </Checkbox>
-                    <Checkbox 
-                      value="Servicio de Lavandería" 
-                      onChange={handleFacilityChange}
-                      isChecked={filters.facilities.includes('Servicio de Lavandería')}
-                    >
-                      Servicio de Lavandería
-                    </Checkbox>
-                    <Checkbox 
-                      value="Servicio de Concierge" 
-                      onChange={handleFacilityChange}
-                      isChecked={filters.facilities.includes('Servicio de Concierge')}
-                    >
-                      Servicio de Concierge
-                    </Checkbox>
-                    <Checkbox 
-                      value="Servicio de Traslado" 
-                      onChange={handleFacilityChange}
-                      isChecked={filters.facilities.includes('Servicio de Traslado')}
-                    >
-                      Servicio de Traslado
-                    </Checkbox>
-                    <Checkbox 
-                      value="Caja Fuerte" 
-                      onChange={handleFacilityChange}
-                      isChecked={filters.facilities.includes('Caja Fuerte')}
-                    >
-                      Caja Fuerte
-                    </Checkbox>
-                    <Checkbox 
-                      value="Ascensor" 
-                      onChange={handleFacilityChange}
-                      isChecked={filters.facilities.includes('Ascensor')}
-                    >
-                      Ascensor
-                    </Checkbox>
-                    <Checkbox 
-                      value="Acceso para Discapacitados" 
-                      onChange={handleFacilityChange}
-                      isChecked={filters.facilities.includes('Acceso para Discapacitados')}
-                    >
-                      Acceso para Discapacitados
-                    </Checkbox>
-                    <Checkbox 
-                      value="Mascotas Permitidas" 
-                      onChange={handleFacilityChange}
-                      isChecked={filters.facilities.includes('Mascotas Permitidas')}
-                    >
-                      Mascotas Permitidas
-                    </Checkbox>
+                  <Stack spacing={2} maxH="280px" overflowY="auto" pr={1}>
+                    {AVAILABLE_FACILITIES.map((facility) => (
+                      <Checkbox 
+                        key={facility}
+                        isChecked={filters.facilities.includes(facility)}
+                        onChange={() => handleFacilityToggle(facility)}
+                        colorScheme="teal"
+                        size="sm"
+                      >
+                        {facility}
+                      </Checkbox>
+                    ))}
                   </Stack>
                 </Box>
-              </Stack>
-              
-              <HStack spacing={4} mt={8}>
+                
                 <Button 
+                  onClick={resetFilters} 
                   colorScheme="teal" 
-                  onClick={applyFilters} 
-                  w="full"
-                >
-                  Aplicar Filtros
-                </Button>
-                <Button 
                   variant="outline" 
-                  onClick={resetFilters}
+                  size="sm" 
+                  w="100%"
                 >
-                  Restablecer
+                  Limpiar Filtros
                 </Button>
-              </HStack>
+              </Stack>
             </Box>
           </Box>
           
-          {/* Hotels grid */}
+          {/* Cuadrícula de Hoteles */}
           <Box flex="1">
             <Flex 
               justify="space-between" 
-              align="center" 
+              align={{ base: 'flex-start', sm: 'center' }} 
+              direction={{ base: 'column', sm: 'row' }}
+              gap={3}
               mb={6}
             >
-              <Text color="gray.600">
-                {filteredHotels.length} hoteles encontrados
-              </Text>
+              <HStack spacing={2}>
+                <Text fontWeight="medium" color="gray.700">
+                  Mostrando {filteredHotels.length} {filteredHotels.length === 1 ? 'hotel' : 'hoteles'}
+                </Text>
+                {searchParams.destination && (
+                  <Badge colorScheme="teal" fontSize="sm" px={2} py={0.5} rounded="md">
+                    Destino: {searchParams.destination}
+                  </Badge>
+                )}
+              </HStack>
               
-              <Select 
-                maxW="200px" 
-                placeholder="Ordenar por" 
-                size="sm"
-                value={sortBy}
-                onChange={handleSortChange}
-              >
-                <option value="priceAsc">Precio: Menor a Mayor</option>
-                <option value="priceDesc">Precio: Mayor a Menor</option>
-                <option value="ratingDesc">Mejor Calificación</option>
-                <option value="popular">Más Populares</option>
-              </Select>
+              <HStack spacing={2} w={{ base: '100%', sm: 'auto' }}>
+                <Text fontSize="sm" whiteSpace="nowrap">Ordenar por:</Text>
+                <Select 
+                  value={sortBy} 
+                  onChange={(e) => setSortBy(e.target.value)}
+                  size="sm"
+                  w={{ base: '100%', sm: '180px' }}
+                  rounded="md"
+                >
+                  <option value="">Recomendados</option>
+                  <option value="priceAsc">Precio: Menor a Mayor</option>
+                  <option value="priceDesc">Precio: Mayor a Menor</option>
+                  <option value="ratingDesc">Mayor Categoría</option>
+                  <option value="nameAsc">Nombre A - Z</option>
+                </Select>
+              </HStack>
             </Flex>
+
+            {/* Tags de Filtros Activos */}
+            {hasActiveFilters && (
+              <Wrap spacing={2} mb={5}>
+                {searchParams.destination && (
+                  <WrapItem>
+                    <Tag size="md" colorScheme="teal" borderRadius="full">
+                      <TagLabel>Destino: {searchParams.destination}</TagLabel>
+                      <TagCloseButton onClick={clearDestination} />
+                    </Tag>
+                  </WrapItem>
+                )}
+                {filters.category && (
+                  <WrapItem>
+                    <Tag size="md" colorScheme="blue" borderRadius="full">
+                      <TagLabel>{filters.category}</TagLabel>
+                      <TagCloseButton onClick={() => setFilters(p => ({ ...p, category: '' }))} />
+                    </Tag>
+                  </WrapItem>
+                )}
+                {(filters.priceRange[0] > 0 || filters.priceRange[1] < 3000) && (
+                  <WrapItem>
+                    <Tag size="md" colorScheme="purple" borderRadius="full">
+                      <TagLabel>Q{filters.priceRange[0]} - Q{filters.priceRange[1]}</TagLabel>
+                      <TagCloseButton onClick={() => setFilters(p => ({ ...p, priceRange: [0, 3000] }))} />
+                    </Tag>
+                  </WrapItem>
+                )}
+                {filters.facilities.map(fac => (
+                  <WrapItem key={fac}>
+                    <Tag size="md" colorScheme="green" borderRadius="full">
+                      <TagLabel>{fac}</TagLabel>
+                      <TagCloseButton onClick={() => handleFacilityToggle(fac)} />
+                    </Tag>
+                  </WrapItem>
+                ))}
+              </Wrap>
+            )}
             
-            {filteredHotels.length === 0 ? (
-              <Box 
-                py={10} 
-                textAlign="center" 
-                bg="gray.50" 
-                borderRadius="md"
-              >
-                <Text fontSize="lg" fontWeight="medium">
-                  {searchParams.destination 
-                    ? `No hay hoteles disponibles para '${searchParams.destination}'`
-                    : 'No se encontraron hoteles que coincidan con tus criterios'
-                  }
-                </Text>
-                <Text color="gray.600" mt={2}>
-                  {searchParams.destination
-                    ? 'Intenta buscar en otra ubicación o ajusta tus filtros.'
-                    : 'Intenta ajustar tus filtros para obtener más resultados.'
-                  }
-                </Text>
-              </Box>
-            ) : (
-              <SimpleGrid 
-                columns={{ base: 1, md: 2, lg: 3 }} 
-                spacing={6}
-              >
-                {filteredHotels.map(hotel => (
-                  <HotelCard key={hotel.uid} hotel={hotel} />
+            {filteredHotels.length > 0 ? (
+              <SimpleGrid columns={{ base: 1, md: 2, lg: 3 }} spacing={6}>
+                {filteredHotels.map((hotel) => (
+                  <HotelCard key={hotel.uid || hotel._id} hotel={hotel} />
                 ))}
               </SimpleGrid>
+            ) : (
+              <Box 
+                textAlign="center" 
+                py={12} 
+                px={6} 
+                bg={filterBg} 
+                borderRadius="lg" 
+                boxShadow="sm"
+                border="1px dashed"
+                borderColor="gray.300"
+              >
+                <Heading as="h3" fontSize="xl" mb={2}>
+                  No se encontraron hoteles
+                </Heading>
+                <Text color="gray.600" mb={4}>
+                  {searchParams.destination 
+                    ? `No hay hoteles que coincidan con '${searchParams.destination}' y los filtros seleccionados.`
+                    : 'Ningún hotel coincide con los filtros aplicados.'
+                  }
+                </Text>
+                <Button 
+                  onClick={resetFilters} 
+                  colorScheme="teal"
+                  size="sm"
+                >
+                  Restablecer todos los filtros
+                </Button>
+              </Box>
             )}
           </Box>
         </Flex>

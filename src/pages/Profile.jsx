@@ -172,21 +172,6 @@ function Profile() {
                   </Text>
                 </Box>
 
-                <Box>
-                  <Text color="gray.500" fontSize="sm">
-                    Rol
-                  </Text>
-                  <Badge
-                    colorScheme="teal"
-                    fontSize="0.9em"
-                    py={1}
-                    px={2}
-                    borderRadius="md"
-                  >
-                    {user?.role || "Usuario"}
-                  </Badge>
-                </Box>
-
                 <Divider my={2} />
 
                 <Button

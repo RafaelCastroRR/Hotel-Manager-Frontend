@@ -143,11 +143,11 @@ const HotelsContent = () => {
                       </Badge>
                     </Flex>
 
-                    <HStack spacing={8}>
+                    <HStack spacing={8} align="flex-start" wrap="wrap">
                       <VStack align="start" spacing={2}>
                         <HStack>
                           <FiMapPin />
-                          <Text>{hotel.direction}</Text>
+                          <Text>{hotel.direction || hotel.location}</Text>
                         </HStack>
                         <HStack>
                           <FiStar />
@@ -155,28 +155,40 @@ const HotelsContent = () => {
                         </HStack>
                         <HStack>
                           <FiDollarSign />
-                          <Text>Precio: ${hotel.rangeOfPrices.min} - ${hotel.rangeOfPrices.max}</Text>
+                          <Text fontWeight="semibold" color="teal.600">
+                            Tarifas: Q{hotel.rangeOfPrices?.min || 0} - Q{hotel.rangeOfPrices?.max || 0}
+                          </Text>
                         </HStack>
                       </VStack>
 
                       <VStack align="start" spacing={2}>
                         <HStack>
                           <FiHome />
-                          <Text>Habitaciones Disponibles: {hotel.availableRooms}</Text>
+                          <Text fontWeight="medium">Habitaciones Libres: {hotel.availableRooms || 0}</Text>
                         </HStack>
-                        <HStack>
-                          <FiHome />
-                          <Text>Habitaciones Ocupadas: {hotel.busyRooms}</Text>
-                        </HStack>
+                        <Badge colorScheme="green" px={2} py={0.5} rounded="md">
+                          Disponible para Reservas
+                        </Badge>
                       </VStack>
 
-                      <VStack align="start" spacing={2}>
+                      {/* Administradores Asignados */}
+                      <VStack align="start" spacing={1.5} minW="220px">
                         <HStack>
-                          <FiUser />
-                          <Text fontWeight="bold">Administrador:</Text>
+                          <FiUser color="teal" />
+                          <Text fontWeight="bold">
+                            Administradores ({((hotel.admins && hotel.admins.length > 0) ? hotel.admins : (hotel.admin ? [hotel.admin] : [])).length}):
+                          </Text>
                         </HStack>
-                        <Text ml={6}>{hotel.admin?.nombre || 'No asignado'}</Text>
-                        <Text ml={6}>{hotel.admin?.email || ''}</Text>
+                        {((hotel.admins && hotel.admins.length > 0) ? hotel.admins : (hotel.admin ? [hotel.admin] : [])).map((adminObj, idx) => (
+                          <Box key={idx} pl={3} borderLeft="2px solid" borderColor="teal.400" py={0.5}>
+                            <Text fontSize="sm" fontWeight="semibold" color="gray.800">
+                              {adminObj?.nombre || adminObj?.name || 'Administrador'}
+                            </Text>
+                            <Text fontSize="xs" color="gray.500">
+                              {adminObj?.email || ''}
+                            </Text>
+                          </Box>
+                        ))}
                       </VStack>
                     </HStack>
 

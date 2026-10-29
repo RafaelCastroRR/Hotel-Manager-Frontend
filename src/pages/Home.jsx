@@ -8,7 +8,8 @@ import {
   Flex, 
   Badge, 
   Input,
-  useBreakpointValue
+  useBreakpointValue,
+  useToast
 } from '@chakra-ui/react'
 import { Link as RouterLink } from 'react-router-dom'
 import { FiArrowRight } from 'react-icons/fi'
@@ -21,19 +22,44 @@ import useHotel from '../shared/hooks/useHotel'
 import { useSearch } from '../shared/context/SearchContext'
 
 function Home() {
-  const heroImageHeight = useBreakpointValue({ base: '500px', md: '600px', lg: '650px' })
-  const heroTextWidth = useBreakpointValue({ base: '100%', md: '80%', lg: '60%' })
+  const heroTextWidth = useBreakpointValue({ base: '100%', md: '80%', lg: '65%' })
   const { getHotels } = useHotel()
   const { searchParams } = useSearch()
   const [hotels, setHotels] = useState([])
+  const [newsletterEmail, setNewsletterEmail] = useState('')
+  const toast = useToast()
 
   useEffect(() => {
     const fetchHotels = async () => {
       const response = await getHotels()
-      setHotels(response)
+      setHotels(response || [])
     }
     fetchHotels()
   }, [])
+
+  const handleSubscribe = (e) => {
+    e.preventDefault()
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+    if (!newsletterEmail || !emailRegex.test(newsletterEmail)) {
+      toast({
+        title: "Correo no válido",
+        description: "Por favor ingresa un correo electrónico válido.",
+        status: "warning",
+        duration: 3500,
+        isClosable: true,
+      })
+      return
+    }
+
+    toast({
+      title: "¡Suscripción exitosa!",
+      description: "Gracias por unirte. Recibirás las mejores ofertas y promociones de hoteles en Guatemala.",
+      status: "success",
+      duration: 4000,
+      isClosable: true,
+    })
+    setNewsletterEmail('')
+  }
 
   const featuredHotels = hotels.slice(0, 4)
   
@@ -41,7 +67,8 @@ function Home() {
     <Box>
       <Box 
         position="relative" 
-        h={heroImageHeight} 
+        minH={{ base: '750px', md: '600px', lg: '650px' }} 
+        py={{ base: 24, md: 16 }}
         bgImage="url('https://images.pexels.com/photos/258154/pexels-photo-258154.jpeg?auto=compress&cs=tinysrgb&w=1920')"
         bgPosition="center"
         bgSize="cover"
@@ -77,7 +104,7 @@ function Home() {
             borderRadius="full"
             mb={4}
           >
-            La Mejor Experiencia Hotelera
+            Hoteles y Resorts en Guatemala
           </Badge>
           
           <Box maxW={heroTextWidth}>
@@ -89,7 +116,7 @@ function Home() {
               lineHeight="1.2"
               mb={4}
             >
-              Descubre Tu Destino Perfecto
+              Descubre Tu Destino Perfecto en Guatemala
             </Heading>
             
             <Text 
@@ -97,7 +124,7 @@ function Home() {
               color="white" 
               mb={6}
             >
-              Lujo y confort sin igual te esperan en los hoteles y resorts más exclusivos del mundo. Comienza tu viaje hoy.
+              Lujo, confort y cultura ancestral te esperan en los destinos más hermosos de Guatemala. Reserva tu estancia hoy.
             </Text>
           </Box>
           
@@ -107,7 +134,7 @@ function Home() {
             borderRadius="lg" 
             boxShadow="md" 
             mt={4}
-            maxW={{ base: '100%', lg: '90%' }}
+            maxW={{ base: '100%', lg: '95%' }}
           >
             <SearchBar />
           </Box>
@@ -133,12 +160,12 @@ function Home() {
             mx="auto" 
             mb={12}
           >
-            Descubre nuestra selección de propiedades excepcionales alrededor del mundo, ofreciendo lujo sin igual y experiencias inolvidables.
+            Descubre nuestra selección de hoteles excepcionales en Antigua, Atitlán, Petén y todo el país, con atención de primera clase y experiencias inolvidables.
           </Text>
           
-          <SimpleGrid columns={{ base: 1, md: 2, lg: 4 }} spacing={8}>
+          <SimpleGrid columns={{ base: 1, sm: 2, lg: 4 }} spacing={8}>
             {featuredHotels.map((hotel) => (
-              <HotelCard key={hotel.uid} hotel={hotel} />
+              <HotelCard key={hotel.uid || hotel._id} hotel={hotel} />
             ))}
           </SimpleGrid>
           
@@ -150,7 +177,7 @@ function Home() {
               variant="outline" 
               colorScheme="teal"
             >
-              Ver Todos los Destinos
+              Ver Todos los Hoteles
             </Button>
           </Flex>
         </Container>
@@ -175,7 +202,7 @@ function Home() {
             mx="auto" 
             mb={12}
           >
-            Descubre por qué los viajeros más exigentes eligen QuickStay para sus alojamientos exclusivos y lujosos alrededor del mundo.
+            Descubre por qué los viajeros eligen QuickStay Guatemala para hospedarse en sus aventuras y descansos.
           </Text>
           
           <SimpleGrid columns={{ base: 1, md: 3 }} spacing={8}>
@@ -186,6 +213,7 @@ function Home() {
         </Container>
       </Box>
       
+      {/* Sección Mantente Inspirado con Formulario Funcional */}
       <Box py={16} bg="navy.900" color="white">
         <Container maxW="1200px">
           <Box 
@@ -193,40 +221,45 @@ function Home() {
             maxW="800px" 
             mx="auto"
           >
-            <Heading as="h2" fontSize={{ base: '2xl', md: '3xl' }} mb={6}>
+            <Heading as="h2" fontSize={{ base: '2xl', md: '3xl' }} mb={4}>
               Mantente Inspirado
             </Heading>
             
-            <Text fontSize="md" mb={8}>
-              Únete a nuestro boletín y sé el primero en descubrir nuevos destinos, ofertas exclusivas e inspiración para viajar.
+            <Text fontSize="md" mb={8} color="gray.300">
+              Únete a nuestra comunidad de viajeros y sé el primero en descubrir nuevos destinos, ofertas exclusivas e inspiración para tus próximas vacaciones en Guatemala.
             </Text>
             
-            <Flex 
-              maxW="500px" 
-              mx="auto" 
-              flexDirection={{ base: 'column', md: 'row' }}
-            >
-              <Input 
-                placeholder="Ingresa tu correo electrónico" 
-                bg="white" 
-                color="gray.800" 
-                _placeholder={{ color: 'gray.500' }}
-                mb={{ base: 4, md: 0 }}
-                mr={{ md: 3 }}
-                size="lg"
-              />
-              <Button 
-                bg="brand.500" 
-                _hover={{ bg: 'brand.600' }} 
-                size="lg"
-                minW={{ md: '150px' }}
+            <Box as="form" onSubmit={handleSubscribe} maxW="520px" mx="auto">
+              <Flex 
+                flexDirection={{ base: 'column', sm: 'row' }}
+                gap={3}
               >
-                Suscribirse
-              </Button>
-            </Flex>
+                <Input 
+                  placeholder="Ingresa tu correo electrónico" 
+                  value={newsletterEmail}
+                  onChange={(e) => setNewsletterEmail(e.target.value)}
+                  bg="white" 
+                  color="gray.800" 
+                  _placeholder={{ color: 'gray.500' }}
+                  size="lg"
+                  rounded="md"
+                />
+                <Button 
+                  type="submit"
+                  bg="brand.500" 
+                  color="white"
+                  _hover={{ bg: 'brand.600' }} 
+                  size="lg"
+                  minW={{ sm: '150px' }}
+                  rounded="md"
+                >
+                  Suscribirse
+                </Button>
+              </Flex>
+            </Box>
             
             <Text fontSize="xs" color="gray.400" mt={4}>
-              Al suscribirte, aceptas nuestra Política de Privacidad y consientes recibir actualizaciones.
+              Al suscribirte, consientes recibir novedades y promociones de hoteles en Guatemala. Puedes cancelar tu suscripción en cualquier momento.
             </Text>
           </Box>
         </Container>

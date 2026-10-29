@@ -23,18 +23,46 @@ import {
   SimpleGrid,
   Box,
   IconButton,
+  Text,
+  Badge,
+  HStack,
+  Wrap,
+  WrapItem,
+  Divider,
 } from "@chakra-ui/react";
-import { FiPlus, FiX } from "react-icons/fi";
+import { FiPlus, FiX, FiCheck } from "react-icons/fi";
 import useAuthStore from "../../../shared/stores/authStore";
 import useHotel from "../../../shared/hooks/useHotel";
+
+const ROOM_TYPE_PRESETS = [
+  "Habitación Estándar",
+  "Habitación Deluxe King",
+  "Master Suite con Vista",
+  "Bungalow Familiar",
+  "Cabaña Ecológica Panorámica",
+  "Suite Colonial con Chimenea",
+  "Villa Familiar Frente al Mar",
+];
+
+const ROOM_AMENITIES_OPTIONS = [
+  "Cama King / Queen",
+  "Baño Privado con Ducha",
+  "Aire Acondicionado",
+  "Wifi de Alta Velocidad",
+  "Balcón con Vista",
+  "TV Smart Streaming",
+  "Jacuzzi / Tina",
+  "Minibar y Cafetera",
+];
 
 const AddEditRoomModal = ({ isOpen, onClose, roomToEdit, onSave }) => {
   const [newRoom, setNewRoom] = useState({
     type: "",
-    capacity: 1,
-    price_per_night: 0,
+    capacity: 2,
+    price_per_night: 500,
   });
   const [hotelId, setHotelId] = useState(null);
+  const [selectedAmenities, setSelectedAmenities] = useState([]);
   const [existingImages, setExistingImages] = useState([]);
   const [newImages, setNewImages] = useState([]);
   const [previewUrls, setPreviewUrls] = useState([]);
@@ -49,16 +77,8 @@ const AddEditRoomModal = ({ isOpen, onClose, roomToEdit, onSave }) => {
     const fetchHotelId = async () => {
       try {
         const hotelResponse = await getHotelsByAdmin();
-        if (!hotelResponse.error) {
-          setHotelId(hotelResponse.uid);
-        } else {
-          toast({
-            title: "Error",
-            description: "No se pudo obtener la información del hotel.",
-            status: "error",
-            duration: 3000,
-            isClosable: true,
-          });
+        if (hotelResponse && !hotelResponse.error) {
+          setHotelId(hotelResponse.uid || hotelResponse._id);
         }
       } catch (error) {
         console.error("Error al obtener el hotel:", error);
@@ -68,26 +88,25 @@ const AddEditRoomModal = ({ isOpen, onClose, roomToEdit, onSave }) => {
     if (isOpen && !isEditing) {
       fetchHotelId();
     }
-  }, [isOpen, isEditing, user.id]);
+  }, [isOpen, isEditing, user?.id]);
 
   useEffect(() => {
     if (isEditing && roomToEdit) {
       setNewRoom({
-        type: roomToEdit.type,
-        capacity: roomToEdit.capacity,
-        price_per_night: roomToEdit.price_per_night,
+        type: roomToEdit.type || "",
+        capacity: roomToEdit.capacity || 2,
+        price_per_night: roomToEdit.price_per_night || 0,
       });
       setExistingImages(roomToEdit.images || []);
     } else {
-      setNewRoom({ type: "", capacity: 1, price_per_night: 0 });
+      setNewRoom({ type: "", capacity: 2, price_per_night: 500 });
       setExistingImages([]);
+      setSelectedAmenities([]);
     }
   }, [isOpen, isEditing, roomToEdit]);
 
   useEffect(() => {
-    // Limpiar las URLs anteriores antes de crear nuevas
     previewUrls.forEach(url => URL.revokeObjectURL(url));
-    
     const urls = newImages.map(file => URL.createObjectURL(file));
     setPreviewUrls(urls);
 
@@ -112,18 +131,23 @@ const AddEditRoomModal = ({ isOpen, onClose, roomToEdit, onSave }) => {
     setPreviewUrls(prev => prev.filter((_, i) => i !== index));
   };
 
+  const toggleAmenity = (amenity) => {
+    setSelectedAmenities(prev => 
+      prev.includes(amenity) ? prev.filter(a => a !== amenity) : [...prev, amenity]
+    );
+  };
+
   const handleSubmit = async () => {
     if (
       !newRoom.type.trim() ||
       newRoom.capacity <= 0 ||
-      newRoom.price_per_night < 0
+      newRoom.price_per_night <= 0
     ) {
       toast({
-        title: "Datos inválidos",
-        description:
-          "Completa todos los campos correctamente (tipo, capacidad > 0, precio >= 0).",
+        title: "Campos incompletos",
+        description: "Ingresa el tipo de habitación, capacidad válida y tarifa por noche mayor a 0.",
         status: "warning",
-        duration: 3000,
+        duration: 3500,
         isClosable: true,
       });
       return;
@@ -135,7 +159,6 @@ const AddEditRoomModal = ({ isOpen, onClose, roomToEdit, onSave }) => {
     formData.append('price_per_night', Number(newRoom.price_per_night));
     formData.append('hotel_id', isEditing ? roomToEdit.hotel_id : hotelId);
 
-    // Agregar imágenes existentes y eliminadas
     if (isEditing) {
       existingImages.forEach((img, index) => {
         formData.append(`existingImages[${index}]`, img);
@@ -147,93 +170,145 @@ const AddEditRoomModal = ({ isOpen, onClose, roomToEdit, onSave }) => {
       }
     }
 
-    // Agregar nuevas imágenes
     newImages.forEach(img => formData.append('images', img));
 
-    const success = await onSave(isEditing ? roomToEdit.uid : null, formData);
+    const success = await onSave(isEditing ? (roomToEdit.uid || roomToEdit._id) : null, formData);
     if (success) {
-      // Limpiar las imágenes después de un guardado exitoso
       setNewImages([]);
       setPreviewUrls([]);
       if (!isEditing) {
         setExistingImages([]);
       }
       toast({
-        title: isEditing ? "Habitación actualizada" : "Habitación creada",
-        description: "La operación se completó exitosamente",
+        title: isEditing ? "Habitación actualizada" : "Habitación creada exitosamente",
+        description: `Tarifa establecida en Q${newRoom.price_per_night} por noche.`,
         status: "success",
-        duration: 3000,
+        duration: 3500,
         isClosable: true,
       });
       onClose();
-    } else {
-      toast({
-        title: "Error",
-        description: "Hubo un error al procesar la solicitud",
-        status: "error",
-        duration: 3000,
-        isClosable: true,
-      });
     }
   };
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} size="xl">
+    <Modal isOpen={isOpen} onClose={onClose} size="2xl">
       <ModalOverlay />
-      <ModalContent>
-        <ModalHeader>
-          {isEditing ? "Editar Habitación" : "Agregar Habitación"}
+      <ModalContent rounded="xl">
+        <ModalHeader borderBottom="1px" borderColor="gray.100" color="gray.800">
+          {isEditing ? "Editar Habitación" : "Registrar Nueva Habitación"}
         </ModalHeader>
         <ModalCloseButton />
-        <ModalBody>
-          <VStack spacing={4}>
+        <ModalBody py={6}>
+          <VStack spacing={5} align="stretch">
+            {/* Tipo de Habitación */}
             <FormControl isRequired>
-              <FormLabel>Tipo de Habitación</FormLabel>
+              <FormLabel fontWeight="semibold">Tipo o Nombre de la Habitación</FormLabel>
               <Input
                 value={newRoom.type}
-                onChange={(e) =>
-                  setNewRoom({ ...newRoom, type: e.target.value })
-                }
-                placeholder="Ej: Individual, Doble, Suite..."
+                onChange={(e) => setNewRoom({ ...newRoom, type: e.target.value })}
+                placeholder="Ej: Habitación Deluxe King, Suite Familiar..."
+                rounded="md"
               />
+              <Text fontSize="xs" color="gray.500" mt={1.5} mb={2}>
+                Sugerencias rápidas:
+              </Text>
+              <Wrap spacing={1.5}>
+                {ROOM_TYPE_PRESETS.map((preset) => (
+                  <WrapItem key={preset}>
+                    <Badge 
+                      colorScheme={newRoom.type === preset ? "teal" : "gray"}
+                      cursor="pointer"
+                      onClick={() => setNewRoom({ ...newRoom, type: preset })}
+                      px={2}
+                      py={1}
+                      rounded="md"
+                      fontSize="xs"
+                    >
+                      + {preset}
+                    </Badge>
+                  </WrapItem>
+                ))}
+              </Wrap>
             </FormControl>
 
-            <FormControl isRequired>
-              <FormLabel>Capacidad</FormLabel>
-              <NumberInput
-                min={1}
-                value={newRoom.capacity}
-                onChange={(value) =>
-                  setNewRoom({ ...newRoom, capacity: parseInt(value) })
-                }
-              >
-                <NumberInputField />
-                <NumberInputStepper>
-                  <NumberIncrementStepper />
-                  <NumberDecrementStepper />
-                </NumberInputStepper>
-              </NumberInput>
-            </FormControl>
+            <SimpleGrid columns={{ base: 1, sm: 2 }} spacing={4}>
+              {/* Capacidad */}
+              <FormControl isRequired>
+                <FormLabel fontWeight="semibold">Capacidad de Huéspedes</FormLabel>
+                <NumberInput
+                  min={1}
+                  max={12}
+                  value={newRoom.capacity}
+                  onChange={(val) => setNewRoom({ ...newRoom, capacity: parseInt(val) || 1 })}
+                  rounded="md"
+                >
+                  <NumberInputField />
+                  <NumberInputStepper>
+                    <NumberIncrementStepper />
+                    <NumberDecrementStepper />
+                  </NumberInputStepper>
+                </NumberInput>
+                <Text fontSize="xs" color="gray.500" mt={1}>
+                  Capacidad máxima recomendada
+                </Text>
+              </FormControl>
 
-            <FormControl isRequired>
-              <FormLabel>Precio por Noche</FormLabel>
-              <NumberInput
-                min={0}
-                value={newRoom.price_per_night}
-                onChange={(value) =>
-                  setNewRoom({ ...newRoom, price_per_night: parseInt(value) })
-                }
-              >
-                <NumberInputField />
-                <NumberInputStepper>
-                  <NumberIncrementStepper />
-                  <NumberDecrementStepper />
-                </NumberInputStepper>
-              </NumberInput>
-            </FormControl>
+              {/* Precio por noche en Quetzales */}
+              <FormControl isRequired>
+                <FormLabel fontWeight="semibold">Precio por Noche (Q - Quetzales)</FormLabel>
+                <NumberInput
+                  min={100}
+                  step={50}
+                  value={newRoom.price_per_night}
+                  onChange={(val) => setNewRoom({ ...newRoom, price_per_night: parseInt(val) || 0 })}
+                  rounded="md"
+                >
+                  <NumberInputField />
+                  <NumberInputStepper>
+                    <NumberIncrementStepper />
+                    <NumberDecrementStepper />
+                  </NumberInputStepper>
+                </NumberInput>
+                <Text fontSize="xs" color="teal.600" mt={1} fontWeight="medium">
+                  {newRoom.price_per_night > 0 ? `Q ${newRoom.price_per_night.toLocaleString()} por noche` : 'Tarifa requerida'}
+                </Text>
+              </FormControl>
+            </SimpleGrid>
 
+            {/* Comodidades destacadas */}
+            <Box bg="gray.50" p={4} rounded="lg" borderWidth="1px" borderColor="gray.200">
+              <Text fontWeight="semibold" fontSize="sm" mb={2}>
+                Comodidades Incluidas en la Habitación:
+              </Text>
+              <Wrap spacing={2}>
+                {ROOM_AMENITIES_OPTIONS.map((amenity) => {
+                  const isSelected = selectedAmenities.includes(amenity);
+                  return (
+                    <WrapItem key={amenity}>
+                      <Badge
+                        colorScheme={isSelected ? "teal" : "gray"}
+                        variant={isSelected ? "solid" : "outline"}
+                        cursor="pointer"
+                        onClick={() => toggleAmenity(amenity)}
+                        px={2.5}
+                        py={1}
+                        rounded="md"
+                        fontSize="xs"
+                      >
+                        {isSelected && <FiCheck style={{ display: 'inline', marginRight: '4px' }} />}
+                        {amenity}
+                      </Badge>
+                    </WrapItem>
+                  );
+                })}
+              </Wrap>
+            </Box>
+
+            <Divider />
+
+            {/* Fotos de la Habitación */}
             <FormControl>
-              <FormLabel>Imágenes</FormLabel>
+              <FormLabel fontWeight="semibold">Fotos de la Habitación</FormLabel>
               <VStack spacing={4} align="stretch">
                 <Box>
                   <Input
@@ -242,61 +317,62 @@ const AddEditRoomModal = ({ isOpen, onClose, roomToEdit, onSave }) => {
                     multiple
                     onChange={handleImageChange}
                     display="none"
-                    id="image-upload"
+                    id="room-image-upload"
                   />
                   <Button
                     as="label"
-                    htmlFor="image-upload"
+                    htmlFor="room-image-upload"
                     leftIcon={<FiPlus />}
-                    colorScheme="blue"
+                    colorScheme="teal"
                     variant="outline"
                     w="full"
+                    cursor="pointer"
                   >
-                    Agregar Imágenes
+                    Seleccionar Fotos desde tu Dispositivo
                   </Button>
                 </Box>
 
                 {(existingImages.length > 0 || previewUrls.length > 0) && (
-                  <SimpleGrid columns={[2, 3, 4]} spacing={4}>
+                  <SimpleGrid columns={[2, 3, 4]} spacing={3}>
                     {existingImages.map((img, index) => (
-                      <Box key={`existing-${index}`} position="relative">
+                      <Box key={`existing-${index}`} position="relative" rounded="lg" overflow="hidden" shadow="sm">
                         <Image
                           src={img}
-                          alt={`Imagen ${index + 1}`}
-                          borderRadius="lg"
+                          alt={`Foto ${index + 1}`}
                           objectFit="cover"
-                          h="150px"
+                          h="120px"
                           w="full"
                         />
                         <IconButton
                           icon={<FiX />}
-                          size="sm"
+                          size="xs"
                           colorScheme="red"
                           position="absolute"
-                          top={2}
-                          right={2}
+                          top={1.5}
+                          right={1.5}
                           onClick={() => removeExistingImage(img)}
+                          aria-label="Eliminar foto"
                         />
                       </Box>
                     ))}
                     {previewUrls.map((url, index) => (
-                      <Box key={`new-${index}`} position="relative">
+                      <Box key={`new-${index}`} position="relative" rounded="lg" overflow="hidden" shadow="sm">
                         <Image
                           src={url}
-                          alt={`Nueva imagen ${index + 1}`}
-                          borderRadius="lg"
+                          alt={`Nueva foto ${index + 1}`}
                           objectFit="cover"
-                          h="150px"
+                          h="120px"
                           w="full"
                         />
                         <IconButton
                           icon={<FiX />}
-                          size="sm"
+                          size="xs"
                           colorScheme="red"
                           position="absolute"
-                          top={2}
-                          right={2}
+                          top={1.5}
+                          right={1.5}
                           onClick={() => removeNewImage(index)}
+                          aria-label="Eliminar foto"
                         />
                       </Box>
                     ))}
@@ -307,12 +383,12 @@ const AddEditRoomModal = ({ isOpen, onClose, roomToEdit, onSave }) => {
           </VStack>
         </ModalBody>
 
-        <ModalFooter>
-          <Button colorScheme="blue" mr={3} onClick={handleSubmit}>
-            {isEditing ? "Actualizar" : "Crear"}
-          </Button>
-          <Button variant="ghost" onClick={onClose}>
+        <ModalFooter borderTop="1px" borderColor="gray.100">
+          <Button variant="ghost" mr={3} onClick={onClose}>
             Cancelar
+          </Button>
+          <Button colorScheme="teal" onClick={handleSubmit}>
+            {isEditing ? "Guardar Cambios" : "Crear Habitación"}
           </Button>
         </ModalFooter>
       </ModalContent>
@@ -325,6 +401,7 @@ AddEditRoomModal.propTypes = {
   onClose: PropTypes.func.isRequired,
   roomToEdit: PropTypes.shape({
     uid: PropTypes.string,
+    _id: PropTypes.string,
     type: PropTypes.string,
     capacity: PropTypes.number,
     price_per_night: PropTypes.number,

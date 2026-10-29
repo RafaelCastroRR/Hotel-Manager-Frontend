@@ -7,6 +7,7 @@ import {
   createEvent as createEventRequest,
   editEvent as editEventRequest,
   cancelEvent as cancelEventRequest,
+  changeEventApproval as changeEventApprovalRequest,
   getEventById,
 } from "../../services/api";
 
@@ -24,12 +25,12 @@ const useHotelEvents = () => {
   const fetchHotel = useCallback(async () => {
     const response = await getHotelByManager();
     if (response.error) {
-      console.error("Error al obtener el hotel:", response.e.message);
+      console.error("Error al obtener el hotel:", response.e?.message);
       return null;
     }
     const h = response.hotel;
     setHotel(h);
-    setHotelId(h.uid || h._id);
+    setHotelId(h?.uid || h?._id);
     return h;
   }, []);
 
@@ -43,7 +44,7 @@ const useHotelEvents = () => {
     setLoading(true);
     const response = await getEventsByHotel(hotelIdToUse);
     if (response.error) {
-      const msg = response.e.response?.data?.msg || response.e.message;
+      const msg = response.e?.response?.data?.msg || response.e?.message || "Error al cargar eventos";
       setError(msg);
       toast({
         title: "Error al cargar eventos",
@@ -73,7 +74,6 @@ const useHotelEvents = () => {
       const idToUse = currentHotel?.uid || currentHotel?._id || hotelId;
 
       if (!idToUse) {
-        console.warn("No se encontró hotelId para eventos.");
         setLoading(false);
         return;
       }
@@ -98,7 +98,7 @@ const useHotelEvents = () => {
 
     const response = await createEventRequest(eventData, hotelId);
     if (response.error) {
-      const msg = response.e.response?.data?.msg || response.e.message;
+      const msg = response.e?.response?.data?.msg || response.e?.message || "Error al crear evento";
       toast({
         title: "Error al crear evento",
         description: msg,
@@ -123,7 +123,7 @@ const useHotelEvents = () => {
 
     const response = await editEventRequest(eventId, eventData);
     if (response.error) {
-      const msg = response.e.response?.data?.msg || response.e.message;
+      const msg = response.e?.response?.data?.msg || response.e?.message || "Error al actualizar evento";
       toast({
         title: "Error al actualizar evento",
         description: msg,
@@ -143,12 +143,41 @@ const useHotelEvents = () => {
     return true;
   };
 
+  const updateEventApproval = async (eventId, aprobacion) => {
+    if (!eventId) return false;
+
+    const response = await changeEventApprovalRequest(eventId, aprobacion);
+    if (response.error) {
+      const msg = response.e?.response?.data?.message || response.e?.response?.data?.msg || response.e?.message || "Error al actualizar aprobación";
+      toast({
+        title: "Error",
+        description: msg,
+        status: "error",
+        duration: 4000,
+        isClosable: true,
+      });
+      return false;
+    }
+
+    const isApproved = aprobacion === "APROBADO";
+    toast({
+      title: isApproved ? "¡Evento Aprobado!" : "Evento Rechazado",
+      description: `El evento ha sido ${aprobacion.toLowerCase()} exitosamente por la administración.`,
+      status: isApproved ? "success" : "warning",
+      duration: 3500,
+      isClosable: true,
+    });
+
+    if (hotelId) await fetchEvents(hotelId);
+    return true;
+  };
+
   const deleteEvent = async (eventId) => {
     if (!eventId) return false;
 
     const response = await cancelEventRequest(eventId);
     if (response.error) {
-      const msg = response.e.response?.data?.msg || response.e.message;
+      const msg = response.e?.response?.data?.msg || response.e?.message || "Error al eliminar evento";
       toast({
         title: "Error al eliminar evento",
         description: msg,
@@ -160,7 +189,7 @@ const useHotelEvents = () => {
     }
     toast({
       title: "Evento eliminado",
-      status: "success",
+      status: "info",
       duration: 3000,
       isClosable: true,
     });
@@ -173,7 +202,7 @@ const useHotelEvents = () => {
 
     const response = await getEventById(eventId);
     if (response.error) {
-      const msg = response.e.response?.data?.msg || response.e.message;
+      const msg = response.e?.response?.data?.msg || response.e?.message || "Error al obtener detalles";
       toast({
         title: "Error al obtener detalles del evento",
         description: msg,
@@ -197,6 +226,7 @@ const useHotelEvents = () => {
     fetchEvents,
     createEvent,
     updateEvent,
+    updateEventApproval,
     deleteEvent,
     getEventDetails,
   };

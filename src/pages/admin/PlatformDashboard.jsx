@@ -13,7 +13,7 @@ const PlatformDashboard = () => {
   const renderContent = () => {
     switch (activeNavItem) {
       case "Dashboard":
-        return <DashboardContent />;
+        return <DashboardContent setActiveNavItem={setActiveNavItem} />;
       case "Usuarios":
         return <UsersContent />;
       case "Hoteles":

@@ -9,7 +9,6 @@ import {
   GridItem, 
   FormControl, 
   FormLabel, 
-  Input, 
   Select, 
   Divider, 
   Icon, 
@@ -22,9 +21,11 @@ import {
   Spinner,
   Checkbox,
   CheckboxGroup,
-  useColorModeValue
+  useColorModeValue,
+  useBreakpointValue,
+  Badge
 } from '@chakra-ui/react'
-import { FiUsers, FiClock, FiAlertCircle } from 'react-icons/fi'
+import { FiUsers, FiClock, FiAlertCircle, FiCheck, FiArrowLeft } from 'react-icons/fi'
 import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import useHotel from '../shared/hooks/useHotel'
 import useAuthStore from '../shared/stores/authStore'
@@ -40,80 +41,163 @@ dayjs.extend(isSameOrAfter)
 dayjs.extend(isSameOrBefore)
 
 function Booking() {
+  // Declaración estricta de TODOS los hooks al inicio del componente
   const { hotelId, roomId } = useParams()
   const navigate = useNavigate()
   const location = useLocation()
   const toast = useToast()
   const { getHotelById } = useHotel()
   const { isAuthenticated } = useAuthStore()
+  const { saveReservation } = useReservation()
+  
+  const bgColor = useColorModeValue('white', 'gray.800')
+  const borderColor = useColorModeValue('gray.200', 'gray.700')
+  const textColor = useColorModeValue('gray.800', 'white')
+  const monthsShown = useBreakpointValue({ base: 1, md: 2 }) || 1
+
   const [hotel, setHotel] = useState(null)
   const [selectedRoom, setSelectedRoom] = useState(null)
+  const [loading, setLoading] = useState(true)
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [error, setError] = useState(null)
   const [bookingData, setBookingData] = useState({
     checkInDate: null,
     checkOutDate: null,
     guests: 1,
     services: []
   })
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState(null)
-  const { saveReservation } = useReservation()
-  
-  const bgColor = useColorModeValue('white', 'gray.800')
-  const borderColor = useColorModeValue('gray.200', 'gray.700')
-  const textColor = useColorModeValue('gray.800', 'white')
 
+  // Inicialización segura de fechas por defecto
   useEffect(() => {
+    const today = new Date()
+    const tomorrow = new Date(today)
+    tomorrow.setDate(tomorrow.getDate() + 1)
+    tomorrow.setHours(12, 0, 0, 0)
+    
+    const dayAfter = new Date(today)
+    dayAfter.setDate(dayAfter.getDate() + 2)
+    dayAfter.setHours(12, 0, 0, 0)
+
+    let initialCheckIn = tomorrow
+    let initialCheckOut = dayAfter
+    let initialGuests = 1
+
     if (location.state) {
       const { checkIn, checkOut, guests } = location.state
-      setBookingData(prev => ({
-        ...prev,
-        checkInDate: checkIn ? new Date(checkIn) : null,
-        checkOutDate: checkOut ? new Date(checkOut) : null,
-        guests: guests || 1
-      }))
+      if (checkIn) {
+        const d = new Date(checkIn)
+        if (!isNaN(d.getTime())) initialCheckIn = d
+      }
+      if (checkOut) {
+        const d = new Date(checkOut)
+        if (!isNaN(d.getTime())) initialCheckOut = d
+      }
+      if (guests) {
+        const g = parseInt(guests)
+        if (!isNaN(g) && g > 0) initialGuests = g
+      }
     }
+
+    // Asegurar que checkOut sea posterior a checkIn
+    if (initialCheckOut <= initialCheckIn) {
+      const nextDay = new Date(initialCheckIn)
+      nextDay.setDate(nextDay.getDate() + 1)
+      initialCheckOut = nextDay
+    }
+
+    setBookingData(prev => ({
+      ...prev,
+      checkInDate: initialCheckIn,
+      checkOutDate: initialCheckOut,
+      guests: initialGuests
+    }))
   }, [location.state])
 
+  // Carga de hotel y habitación
+  useEffect(() => {
+    let isMounted = true
+    const fetchHotel = async () => {
+      try {
+        setLoading(true)
+        setError(null)
+        const response = await getHotelById(hotelId)
+        
+        if (!isMounted) return
+
+        if (!response) {
+          setError('No se pudo encontrar la información del hotel solicitado.')
+          setLoading(false)
+          return
+        }
+
+        setHotel(response)
+        const rooms = response.rooms || []
+        const matchedRoom = rooms.find(r => 
+          String(r._id) === String(roomId) || 
+          String(r.uid) === String(roomId)
+        )
+
+        if (matchedRoom) {
+          setSelectedRoom(matchedRoom)
+        } else if (rooms.length > 0) {
+          setSelectedRoom(rooms[0])
+        } else {
+          setError('Este hotel no tiene habitaciones registradas actualmente.')
+        }
+      } catch (err) {
+        console.error('Error al cargar información del hotel para reserva:', err)
+        if (isMounted) setError('Error al conectar con el servidor para obtener la habitación.')
+      } finally {
+        if (isMounted) setLoading(false)
+      }
+    }
+
+    fetchHotel()
+    return () => { isMounted = false }
+  }, [hotelId, roomId])
+
   const getDisabledDates = () => {
-    if (!selectedRoom?.nonAvailability) return [];
+    if (!selectedRoom?.nonAvailability || !Array.isArray(selectedRoom.nonAvailability)) return []
     
     return selectedRoom.nonAvailability.flatMap(period => {
-      const start = dayjs(period.start);
-      const end = dayjs(period.end);
-      const dates = [];
-      let current = start;
+      if (!period?.start || !period?.end) return []
+      const start = dayjs(period.start)
+      const end = dayjs(period.end)
+      const dates = []
+      let current = start
       
       while (current.isBefore(end) || current.isSame(end, 'day')) {
-        dates.push(new Date(current));
-        current = current.add(1, 'day');
+        dates.push(new Date(current.toDate()))
+        current = current.add(1, 'day')
       }
       
-      return dates;
-    });
-  };
+      return dates
+    })
+  }
 
   const calculateNights = () => {
-    if (!bookingData.checkInDate || !bookingData.checkOutDate) return 0;
-    const checkIn = dayjs(bookingData.checkInDate);
-    const checkOut = dayjs(bookingData.checkOutDate);
-    return checkOut.diff(checkIn, 'day');
+    if (!bookingData.checkInDate || !bookingData.checkOutDate) return 1
+    const checkIn = dayjs(bookingData.checkInDate)
+    const checkOut = dayjs(bookingData.checkOutDate)
+    const diff = checkOut.diff(checkIn, 'day')
+    return diff > 0 ? diff : 1
   }
 
   const handleDateChange = (dates) => {
-    const [start, end] = dates;
+    const [start, end] = dates
     setBookingData(prev => ({
       ...prev,
       checkInDate: start,
       checkOutDate: end
-    }));
-  };
+    }))
+  }
 
   const handleGuestsChange = (e) => {
     setBookingData(prev => ({
       ...prev,
-      guests: e.target.value
-    }));
-  };
+      guests: parseInt(e.target.value) || 1
+    }))
+  }
 
   const handleServicesChange = (selectedServices) => {
     setBookingData(prev => ({
@@ -121,252 +205,264 @@ function Booking() {
       services: selectedServices.map(serviceId => ({
         service: serviceId
       }))
-    }));
-  };
+    }))
+  }
   
   const handleSubmit = async (e) => {
-    e.preventDefault();
-    console.log(bookingData)
+    e.preventDefault()
+    
     if (!isAuthenticated) {
       toast({
-        title: 'Error',
-        description: 'Debes iniciar sesión para realizar una reserva',
-        status: 'error',
-        duration: 5000,
+        title: 'Inicio de sesión requerido',
+        description: 'Debes iniciar sesión con tu cuenta para completar tu reserva.',
+        status: 'info',
+        duration: 4000,
         isClosable: true,
-      });
-      return;
+      })
+      navigate('/login', { state: { from: location.pathname } })
+      return
     }
     
     if (!bookingData.checkInDate || !bookingData.checkOutDate) {
       toast({
-        title: 'Error',
-        description: 'Por favor selecciona las fechas de entrada y salida',
-        status: 'error',
-        duration: 5000,
+        title: 'Selecciona las fechas',
+        description: 'Por favor selecciona la fecha de entrada y salida para tu estadía.',
+        status: 'warning',
+        duration: 4000,
         isClosable: true,
-      });
-      return;
+      })
+      return
     }
-    
+
     try {
-      await saveReservation({ 
-        hotel: hotelId, 
-        room: roomId,
+      setIsSubmitting(true)
+      const hotelIdentifier = hotel?.uid || hotel?._id || hotelId
+      const roomIdentifier = selectedRoom?._id || selectedRoom?.uid || roomId
+
+      const res = await saveReservation({ 
+        hotel: hotelIdentifier, 
+        room: roomIdentifier,
         checkInDate: bookingData.checkInDate.toISOString(),
         checkOutDate: bookingData.checkOutDate.toISOString(),
         services: bookingData.services,
         guests: bookingData.guests
-      });
-      navigate('/my-bookings');
-    } catch (error) {
-      toast({
-        title: 'Error',
-        description: error.response?.data?.msg || 'No se pudo procesar tu reserva',
-        status: 'error',
-        duration: 5000,
-        isClosable: true,
-      });
-    }
-  };
-  
-  useEffect(() => {
-    const fetchHotel = async () => {
-      try {
-        setLoading(true)
-        setError(null)
-        const response = await getHotelById(hotelId)
-        setHotel(response)
-        const room = response.rooms.find(r => r._id === roomId)
-        if (room) {
-          setSelectedRoom(room)
-          console.log(room)
-        } else {
-          setError('No se encontró la habitación seleccionada')
-        }
-      } catch (error) {
-        console.error('Error al cargar el hotel:', error)
-        setError('No se pudo cargar la información del hotel')
-      } finally {
-        setLoading(false)
+      })
+
+      if (res && !res.error) {
+        navigate('/my-bookings')
       }
+    } catch (err) {
+      console.error('Error al enviar la reserva:', err)
+      toast({
+        title: 'Error de reserva',
+        description: 'No se pudo completar la reserva. Por favor intenta de nuevo.',
+        status: 'error',
+        duration: 4000,
+        isClosable: true,
+      })
+    } finally {
+      setIsSubmitting(false)
     }
-    fetchHotel()
-  }, [hotelId, roomId])
-  
-  if (loading) {
-    return (
-      <Box pt={20} pb={16}>
-        <Container maxW="1200px">
-          <Stack spacing={4} align="center" justify="center" minH="400px">
-            <Spinner size="xl" color="teal.500" />
-            <Text>Cargando información del hotel...</Text>
-          </Stack>
-        </Container>
-      </Box>
-    )
   }
 
-  if (error) {
-    return (
-      <Box pt={20} pb={16}>
-        <Container maxW="1200px">
-          <Stack spacing={4} align="center" justify="center" minH="400px">
-            <Icon as={FiAlertCircle} w={12} h={12} color="red.500" />
-            <Text fontSize="xl" color="red.500">{error}</Text>
-            <Button colorScheme="teal" onClick={() => navigate('/hotels')}>
-              Volver a Hoteles
-            </Button>
-          </Stack>
-        </Container>
-      </Box>
-    )
-  }
-  
-  if (!hotel || !selectedRoom) {
-    return (
-      <Box pt={20} pb={16}>
-        <Container maxW="1200px">
-          <Stack spacing={4} align="center" justify="center" minH="400px">
-            <Icon as={FiAlertCircle} w={12} h={12} color="red.500" />
-            <Text fontSize="xl" color="red.500">No se encontró la información del hotel</Text>
-            <Button colorScheme="teal" onClick={() => navigate('/hotels')}>
-              Volver a Hoteles
-            </Button>
-          </Stack>
-        </Container>
-      </Box>
-    )
-  }
-  
+  // Estilos limpios para el calendario
   const customDatePickerStyles = {
-    width: '100%',
     '.react-datepicker': {
       fontFamily: 'inherit',
-      border: 'none',
-      boxShadow: 'lg',
+      border: '1px solid',
+      borderColor: 'gray.200',
       borderRadius: 'lg',
-      backgroundColor: bgColor,
-      color: textColor,
+      boxShadow: 'sm',
+      overflow: 'hidden',
+      maxWidth: '100%',
     },
     '.react-datepicker__header': {
-      backgroundColor: 'teal.500',
-      color: 'white',
+      bg: 'teal.500',
       borderBottom: 'none',
-      borderTopLeftRadius: 'lg',
-      borderTopRightRadius: 'lg',
+      color: 'white',
+      py: 3,
     },
     '.react-datepicker__current-month': {
       color: 'white',
       fontWeight: 'bold',
-      fontSize: '1.1em',
+      fontSize: 'md',
+      mb: 2,
     },
     '.react-datepicker__day-name': {
       color: 'white',
-      fontWeight: 'bold',
+      fontWeight: 'semibold',
+      width: { base: '2rem', sm: '2.4rem' },
     },
     '.react-datepicker__day': {
-      color: textColor,
+      width: { base: '2rem', sm: '2.4rem' },
+      lineHeight: { base: '2rem', sm: '2.4rem' },
       borderRadius: 'md',
-      margin: '0.2em',
-      width: '2.5em',
-      lineHeight: '2.5em',
+      m: 0.5,
+      _hover: {
+        bg: 'teal.100',
+        color: 'teal.800',
+      },
     },
-    '.react-datepicker__day:hover': {
-      backgroundColor: 'teal.100',
+    '.react-datepicker__day--selected, .react-datepicker__day--in-range': {
+      bg: 'teal.500 !important',
+      color: 'white !important',
+      fontWeight: 'bold',
     },
-    '.react-datepicker__day--selected': {
-      backgroundColor: 'teal.500',
-      color: 'white',
-    },
-    '.react-datepicker__day--in-range': {
-      backgroundColor: 'teal.100',
-      color: 'teal.700',
+    '.react-datepicker__day--range-start, .react-datepicker__day--range-end': {
+      bg: 'teal.600 !important',
+      color: 'white !important',
     },
     '.react-datepicker__day--disabled': {
-      color: 'gray.400',
-      backgroundColor: 'gray.100',
+      color: 'gray.300 !important',
+      cursor: 'not-allowed',
+      _hover: {
+        bg: 'transparent !important',
+      },
     },
-    '.react-datepicker__navigation': {
-      top: '1em',
-    },
-    '.react-datepicker__navigation-icon::before': {
-      borderColor: 'white',
-    },
-  };
+  }
+
+  // Renders condicionales (DESPUÉS de que todos los hooks han sido ejecutados arriba)
+  if (loading) {
+    return (
+      <Box pt={24} pb={16}>
+        <Container maxW="1200px">
+          <Stack spacing={4} align="center" justify="center" minH="400px">
+            <Spinner size="xl" color="teal.500" thickness="4px" />
+            <Text color="gray.600" fontSize="lg">Cargando detalles de tu reserva...</Text>
+          </Stack>
+        </Container>
+      </Box>
+    )
+  }
+
+  if (error || !hotel || !selectedRoom) {
+    return (
+      <Box pt={24} pb={16}>
+        <Container maxW="1200px">
+          <Stack spacing={5} align="center" justify="center" minH="400px" textAlign="center">
+            <Icon as={FiAlertCircle} w={14} h={14} color="red.500" />
+            <Heading size="md" color="red.600">
+              {error || 'No se encontró la información del hotel o habitación.'}
+            </Heading>
+            <Text color="gray.600" maxW="500px">
+              Es posible que la habitación ya no esté disponible o el enlace sea incorrecto.
+            </Text>
+            <Button colorScheme="teal" onClick={() => navigate('/hotels')} leftIcon={<FiArrowLeft />}>
+              Volver al Catálogo de Hoteles
+            </Button>
+          </Stack>
+        </Container>
+      </Box>
+    )
+  }
+
+  const roomPrice = selectedRoom.price_per_night ?? selectedRoom.price ?? 0
+  const nights = calculateNights()
+  const roomTotal = nights * roomPrice
+  const servicesTotal = bookingData.services.reduce((total, { service: serviceId }) => {
+    const service = hotel?.services?.find(s => String(s._id) === String(serviceId))
+    return total + (service?.price || 0)
+  }, 0)
+  const grandTotal = roomTotal + servicesTotal
+  const roomCapacity = Math.max(1, selectedRoom.capacity || 1)
 
   return (
-    <Box pt={20} pb={16}>
+    <Box pt={24} pb={16} bg="gray.50" minH="100vh">
       <Container maxW="1200px">
+        <HStack mb={6} spacing={3}>
+          <Button 
+            variant="ghost" 
+            size="sm" 
+            leftIcon={<FiArrowLeft />}
+            onClick={() => navigate(`/hotels/${hotelId}`)}
+          >
+            Volver al Hotel
+          </Button>
+          <Badge colorScheme="teal" px={2} py={1} rounded="md">
+            Paso Final de Reserva
+          </Badge>
+        </HStack>
+
         <Heading as="h1" fontSize={{ base: '2xl', md: '3xl' }} mb={8}>
-          Reserva tu Habitación
+          Completar Reservación
         </Heading>
-        
-        <Grid templateColumns={{ base: '1fr', lg: '2fr 1fr' }} gap={8}>
+
+        <Grid templateColumns={{ base: '1fr', lg: '7fr 5fr' }} gap={8}>
+          {/* Formulario de Reserva */}
           <GridItem>
-            <Card bg={bgColor} borderWidth="1px" borderColor={borderColor}>
-              <CardBody>
+            <Card bg={bgColor} borderWidth="1px" borderColor={borderColor} shadow="sm" rounded="lg">
+              <CardBody p={{ base: 5, md: 8 }}>
                 <form onSubmit={handleSubmit}>
                   <Stack spacing={6}>
-                    {/* Fechas */}
-                    <FormControl isRequired>
-                      <FormLabel>Selecciona tus fechas</FormLabel>
-                      <Box sx={customDatePickerStyles}>
+                    <Box>
+                      <Heading size="md" mb={1}>Selecciona tus Fechas</Heading>
+                      <Text fontSize="sm" color="gray.600">
+                        Elige la fecha de llegada y salida en el calendario
+                      </Text>
+                    </Box>
+
+                    {/* Selector de Fechas */}
+                    <FormControl>
+                      <Box sx={customDatePickerStyles} overflowX="auto" pb={2}>
                         <DatePicker
-                          selected={bookingData.checkInDate}
-                          onChange={handleDateChange}
+                          selectsRange={true}
                           startDate={bookingData.checkInDate}
                           endDate={bookingData.checkOutDate}
-                          selectsRange
-                          inline
+                          onChange={handleDateChange}
                           minDate={new Date()}
                           excludeDates={getDisabledDates()}
-                          monthsShown={2}
+                          inline
                           locale={es}
+                          monthsShown={monthsShown}
                           dateFormat="dd/MM/yyyy"
-                          showPopperArrow={false}
-                          calendarStartDay={1}
-                          dayClassName={date => {
-                            if (getDisabledDates().some(d => dayjs(d).isSame(date, 'day'))) {
-                              return 'disabled-date';
-                            }
-                            return null;
-                          }}
                         />
                       </Box>
                     </FormControl>
-                    
-                    {/* Huéspedes */}
+
+                    {/* Selector de Huéspedes */}
                     <FormControl isRequired>
-                      <FormLabel>Número de Huéspedes</FormLabel>
-                      <Select
-                        name="guests"
+                      <FormLabel fontWeight="medium">Número de Huéspedes</FormLabel>
+                      <Select 
                         value={bookingData.guests}
                         onChange={handleGuestsChange}
+                        rounded="md"
+                        bg="white"
                       >
-                        {[...Array(selectedRoom?.capacity || 0)].map((_, i) => (
+                        {[...Array(roomCapacity)].map((_, i) => (
                           <option key={i + 1} value={i + 1}>
-                            {i + 1} {i === 0 ? 'Huésped' : 'Huéspedes'}
+                            {i + 1} {i === 0 ? 'Huésped' : 'Huéspedes'} (Capacidad máx: {roomCapacity})
                           </option>
                         ))}
                       </Select>
                     </FormControl>
                   
                     {/* Servicios Adicionales */}
-                    <FormControl>
-                      <FormLabel>Servicios Adicionales</FormLabel>
-                      <CheckboxGroup colorScheme="teal" onChange={handleServicesChange}>
-                        <Stack spacing={2}>
-                          {hotel?.services?.map(service => (
-                            <Checkbox key={service._id} value={service._id}>
-                              {service.name} - ${service.price}
-                            </Checkbox>
-                          ))}
-                        </Stack>
-                      </CheckboxGroup>
-                    </FormControl>
+                    {hotel?.services && hotel.services.length > 0 && (
+                      <FormControl>
+                        <FormLabel fontWeight="medium">Servicios Adicionales Disponibles</FormLabel>
+                        <CheckboxGroup colorScheme="teal" onChange={handleServicesChange}>
+                          <Stack spacing={2.5} bg="gray.50" p={4} rounded="md" borderWidth="1px" borderColor="gray.200">
+                            {hotel.services.map(service => (
+                              <Checkbox key={service._id} value={service._id}>
+                                <HStack justify="space-between" w="100%">
+                                  <Text fontSize="sm" fontWeight="medium">{service.name}</Text>
+                                  <Badge colorScheme="purple">Q {service.price}</Badge>
+                                </HStack>
+                              </Checkbox>
+                            ))}
+                          </Stack>
+                        </CheckboxGroup>
+                      </FormControl>
+                    )}
                     
-                    <Button type="submit" colorScheme="teal" size="lg">
+                    <Button 
+                      type="submit" 
+                      colorScheme="teal" 
+                      size="lg"
+                      isLoading={isSubmitting}
+                      loadingText="Procesando tu reserva..."
+                      rounded="md"
+                    >
                       Confirmar Reserva
                     </Button>
                   </Stack>
@@ -377,30 +473,30 @@ function Booking() {
           
           {/* Resumen de la Reserva */}
           <GridItem>
-            <Card bg="white" borderWidth="1px" borderColor="gray.200" position="sticky" top="100px">
-              <CardBody>
-                <VStack spacing={6} align="stretch">
-                  <Heading size="md">Resumen de la Reserva</Heading>
+            <Card bg={bgColor} borderWidth="1px" borderColor={borderColor} position={{ base: 'static', lg: 'sticky' }} top="100px" shadow="sm" rounded="lg">
+              <CardBody p={{ base: 5, md: 6 }}>
+                <VStack spacing={5} align="stretch">
+                  <Heading size="md" color="gray.800">Resumen de la Estancia</Heading>
                   
                   {/* Información del Hotel */}
                   <Box>
-                    <Text fontWeight="medium" mb={2}>{hotel?.name}</Text>
-                    <Text color="gray.600" fontSize="sm">{hotel?.direction}</Text>
+                    <Text fontWeight="bold" fontSize="lg" color="teal.600">{hotel?.name}</Text>
+                    <Text color="gray.600" fontSize="sm" mt={1}>{hotel?.direction || hotel?.location}</Text>
                   </Box>
                   
                   <Divider />
                   
                   {/* Información de la Habitación */}
                   <Box>
-                    <Text fontWeight="medium" mb={2}>{selectedRoom?.type}</Text>
-                    <HStack spacing={4}>
-                      <HStack>
-                        <Icon as={FiUsers} />
-                        <Text>{selectedRoom?.capacity} Huéspedes</Text>
+                    <Text fontWeight="semibold" fontSize="md" color="gray.800">{selectedRoom?.type}</Text>
+                    <HStack spacing={4} mt={2}>
+                      <HStack color="gray.600" fontSize="sm">
+                        <Icon as={FiUsers} color="teal.500" />
+                        <Text>{bookingData.guests} {bookingData.guests === 1 ? 'Huésped' : 'Huéspedes'}</Text>
                       </HStack>
-                      <HStack>
-                        <Icon as={FiClock} />
-                        <Text>{calculateNights()} Noches</Text>
+                      <HStack color="gray.600" fontSize="sm">
+                        <Icon as={FiClock} color="teal.500" />
+                        <Text>{nights} {nights === 1 ? 'Noche' : 'Noches'}</Text>
                       </HStack>
                     </HStack>
                   </Box>
@@ -410,37 +506,50 @@ function Booking() {
                   {/* Desglose de Precios */}
                   <Box>
                     <HStack justify="space-between" mb={2}>
-                      <Text>Precio por noche</Text>
-                      <Text>${selectedRoom?.price_per_night}</Text>
+                      <Text fontSize="sm" color="gray.600">Precio por noche:</Text>
+                      <Text fontSize="sm" fontWeight="medium">Q {roomPrice.toLocaleString()}</Text>
                     </HStack>
                     <HStack justify="space-between" mb={2}>
-                      <Text>Noches</Text>
-                      <Text>{calculateNights()}</Text>
+                      <Text fontSize="sm" color="gray.600">Total noches ({nights}):</Text>
+                      <Text fontSize="sm" fontWeight="medium">Q {roomTotal.toLocaleString()}</Text>
                     </HStack>
+                    
                     {bookingData.services.length > 0 && (
                       <>
                         <Divider my={2} />
-                        <Text fontWeight="medium" mb={2}>Servicios Adicionales:</Text>
+                        <Text fontWeight="semibold" fontSize="xs" color="gray.500" textTransform="uppercase" mb={2}>
+                          Servicios Adicionales:
+                        </Text>
                         {bookingData.services.map(({ service: serviceId }) => {
-                          const service = hotel?.services?.find(s => s._id === serviceId);
+                          const service = hotel?.services?.find(s => String(s._id) === String(serviceId))
                           return (
-                            <HStack key={serviceId} justify="space-between" mb={1}>
-                              <Text fontSize="sm">{service?.name}</Text>
-                              <Text fontSize="sm">${service?.price}</Text>
+                            <HStack key={serviceId} justify="space-between" mb={1.5}>
+                              <Text fontSize="sm" color="gray.600">{service?.name || 'Servicio'}</Text>
+                              <Text fontSize="sm" fontWeight="medium">Q {(service?.price || 0).toLocaleString()}</Text>
                             </HStack>
-                          );
+                          )
                         })}
                       </>
                     )}
-                    <Divider my={2} />
-                    <HStack justify="space-between" fontWeight="bold">
-                      <Text>Total</Text>
-                      <Text color="teal.500">
-                        ${calculateNights() * (selectedRoom?.price_per_night || 0) + 
-                          bookingData.services.reduce((total, { service: serviceId }) => {
-                            const service = hotel?.services?.find(s => s._id === serviceId);
-                            return total + (service?.price || 0);
-                          }, 0)}
+                    
+                    <Divider my={3} />
+                    
+                    <HStack justify="space-between" pt={1}>
+                      <Box>
+                        <Text fontSize="md" fontWeight="bold">Total a Pagar</Text>
+                        <Text fontSize="xs" color="gray.500">Impuestos de ley incluidos</Text>
+                      </Box>
+                      <Text fontSize="2xl" fontWeight="black" color="teal.600">
+                        Q {grandTotal.toLocaleString()}
+                      </Text>
+                    </HStack>
+                  </Box>
+
+                  <Box bg="teal.50" p={3} rounded="md" borderWidth="1px" borderColor="teal.100">
+                    <HStack align="flex-start" spacing={2}>
+                      <Icon as={FiCheck} color="teal.500" mt={0.5} />
+                      <Text fontSize="xs" color="teal.800">
+                        Confirmación instantánea. Sin cargos ocultos en tu reserva con QuickStay Guatemala.
                       </Text>
                     </HStack>
                   </Box>

@@ -184,9 +184,32 @@ function EventCard({ event, onEventUpdated }) {
             </Badge>
           </Flex>
 
+          {/* Estado de Aprobación por el Manager del Hotel */}
+          <Box mb={3}>
+            {event.aprobacion === 'APROBADO' ? (
+              <Badge colorScheme="green" px={2.5} py={1} rounded="md" fontSize="xs">
+                ✓ Confirmado por el Hotel
+              </Badge>
+            ) : event.aprobacion === 'RECHAZADO' ? (
+              <Badge colorScheme="red" px={2.5} py={1} rounded="md" fontSize="xs">
+                ✕ No Disponible / Rechazado
+              </Badge>
+            ) : (
+              <Badge colorScheme="yellow" px={2.5} py={1} rounded="md" fontSize="xs">
+                ⏳ Pendiente de Aprobación del Hotel
+              </Badge>
+            )}
+          </Box>
+
           <Text color="gray.600" fontSize="sm" mb={3} noOfLines={2}>
             {descripcion}
           </Text>
+
+          {(!event.aprobacion || event.aprobacion === 'PENDIENTE') && (
+            <Text fontSize="xs" color="yellow.800" bg="yellow.50" p={2} rounded="md" mb={3} borderLeft="3px solid" borderColor="yellow.400">
+              El gerente del hotel revisará tu solicitud para confirmar el espacio y recursos.
+            </Text>
+          )}
 
           <VStack spacing={2} align="stretch" mb={3}>
             <Flex align="center">

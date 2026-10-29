@@ -45,15 +45,19 @@ function HotelDetail() {
   const borderColor = useColorModeValue('gray.200', 'gray.700')
   
   useEffect(() => {
+    let isMounted = true
     const fetchHotel = async () => {
       try {
         const response = await getHotelById(id)
-        setHotel(response)
+        if (isMounted) {
+          setHotel(response)
+        }
       } catch (error) {
         console.error('Error al cargar el hotel:', error)
       }
     }
     fetchHotel()
+    return () => { isMounted = false }
   }, [id])
 
   // Filtrar habitaciones cuando cambien los parámetros de búsqueda o el hotel
@@ -62,24 +66,15 @@ function HotelDetail() {
       if (searchParams.checkIn && searchParams.checkOut) {
         const checkInDate = new Date(searchParams.checkIn)
         const checkOutDate = new Date(searchParams.checkOut)
-        const guests = parseInt(searchParams.guests || '2')
+        const guests = parseInt(searchParams.guests || '1')
         
-        const availableRooms = hotel.rooms.filter(room => {
-          // Verificar capacidad
-          if (room.capacity < guests) {
-            return false
-          }
+        const availableRooms = (hotel.rooms || []).filter(room => {
+          if (room.capacity < guests) return false
+          if (!room.nonAvailability || room.nonAvailability.length === 0) return true
           
-          // Verificar disponibilidad
-          if (!room.nonAvailability || room.nonAvailability.length === 0) {
-            return true
-          }
-          
-          // Verificar si las fechas seleccionadas se superponen con algún período de no disponibilidad
           return !room.nonAvailability.some(period => {
             const periodStart = new Date(period.start)
             const periodEnd = new Date(period.end)
-            
             return (
               (checkInDate >= periodStart && checkInDate < periodEnd) ||
               (checkOutDate > periodStart && checkOutDate <= periodEnd) ||
@@ -88,28 +83,37 @@ function HotelDetail() {
           })
         })
         
-        setFilteredRooms(availableRooms)
+        setFilteredRooms(availableRooms.length > 0 ? availableRooms : (hotel.rooms || []))
       } else {
-        setFilteredRooms(hotel.rooms)
+        setFilteredRooms(hotel.rooms || [])
       }
     }
   }, [hotel, searchParams])
   
   if (!hotel) {
     return (
-      <Box pt={20} pb={16}>
+      <Box pt={24} pb={16}>
         <Container maxW="1200px">
-          <Text>Cargando...</Text>
+          <Text fontSize="lg" color="gray.600">Cargando detalles del hotel...</Text>
         </Container>
       </Box>
     )
   }
   
-  const displayedImages = showAllImages ? hotel.images : hotel.images.slice(0, 5)
-  const remainingImages = hotel.images.length - 5
+  const hotelImages = hotel.images || []
+  const displayedImages = showAllImages ? hotelImages : hotelImages.slice(0, 5)
+  const remainingImages = Math.max(0, hotelImages.length - 5)
   
   const handleRoomSelect = (room) => {
-    navigate(`/booking/${hotel.uid}/${room._id}`)
+    const hotelIdentifier = hotel.uid || hotel._id || id
+    const roomIdentifier = room._id || room.uid
+    navigate(`/booking/${hotelIdentifier}/${roomIdentifier}`, {
+      state: {
+        checkIn: searchParams.checkIn || null,
+        checkOut: searchParams.checkOut || null,
+        guests: searchParams.guests || 1
+      }
+    })
   }
 
   const handleRoomGalleryOpen = (room) => {
@@ -145,133 +149,146 @@ function HotelDetail() {
             </Badge>
             <Text color="gray.600" fontSize="sm">
               <FiMapPin style={{ display: 'inline', marginRight: '4px' }} />
-              {hotel.direction}
+              {hotel.location} - {hotel.direction}
             </Text>
           </Flex>
         </Box>
-        
+
         {/* Image Gallery */}
-        <Box mb={8}>
-          <SimpleGrid columns={{ base: 1, md: 2, lg: 3 }} spacing={4}>
-            {displayedImages.map((image, index) => (
+        {hotelImages.length > 0 && (
+          <Box mb={8}>
+            <SimpleGrid columns={{ base: 1, md: 4 }} spacing={4}>
               <Box 
-                key={index} 
-                position="relative" 
-                borderRadius="lg" 
+                gridColumn={{ base: '1', md: 'span 2' }} 
+                gridRow={{ base: '1', md: 'span 2' }}
+                borderRadius="lg"
                 overflow="hidden"
                 cursor="pointer"
                 onClick={onOpen}
               >
                 <Image 
-                  src={image} 
-                  alt={`${hotel.name} - Imagen ${index + 1}`}
+                  src={hotelImages[0]} 
+                  alt={hotel.name}
                   w="full"
-                  h="250px"
+                  h="400px"
                   objectFit="cover"
                 />
               </Box>
-            ))}
-            {!showAllImages && remainingImages > 0 && (
-              <Box 
-                position="relative" 
-                borderRadius="lg" 
-                overflow="hidden"
-                cursor="pointer"
-                onClick={() => setShowAllImages(true)}
-              >
-                <Box
-                  position="absolute"
-                  inset={0}
-                  bg="blackAlpha.600"
-                  display="flex"
-                  alignItems="center"
-                  justifyContent="center"
-                  color="white"
+              {displayedImages.slice(1, 5).map((image, index) => (
+                <Box 
+                  key={index} 
+                  borderRadius="lg" 
+                  overflow="hidden"
+                  cursor="pointer"
+                  onClick={onOpen}
+                  position="relative"
                 >
-                  <Text fontSize="xl" fontWeight="bold">
-                    +{remainingImages} más
-                  </Text>
+                  <Image 
+                    src={image} 
+                    alt={`${hotel.name} - Imagen ${index + 2}`}
+                    w="full"
+                    h="190px"
+                    objectFit="cover"
+                  />
+                  {index === 3 && remainingImages > 0 && (
+                    <Box
+                      position="absolute"
+                      top="0"
+                      left="0"
+                      right="0"
+                      bottom="0"
+                      bg="blackAlpha.600"
+                      display="flex"
+                      alignItems="center"
+                      justifyContent="center"
+                      color="white"
+                      fontSize="xl"
+                      fontWeight="bold"
+                    >
+                      +{remainingImages} fotos
+                    </Box>
+                  )}
                 </Box>
-                <Image 
-                  src={hotel.images[5]} 
-                  alt="Ver más imágenes"
-                  w="full"
-                  h="250px"
-                  objectFit="cover"
-                />
-              </Box>
-            )}
-          </SimpleGrid>
-        </Box>
-        
-        {/* Hotel Information */}
-        <Flex 
-          direction={{ base: 'column', lg: 'row' }} 
-          gap={8}
-        >
+              ))}
+            </SimpleGrid>
+          </Box>
+        )}
+
+        <Flex direction={{ base: 'column', lg: 'row' }} gap={8}>
           {/* Main Content */}
           <Box flex="1">
-            {/* Facilities */}
-            <Box 
-              p={6} 
-              bg={bgColor} 
-              borderRadius="lg" 
-              borderWidth="1px"
-              borderColor={borderColor}
-              mb={6}
-            >
-              <Heading as="h3" fontSize="xl" mb={4}>
-                Instalaciones
+            {/* Description */}
+            <Box mb={8}>
+              <Heading as="h2" fontSize="xl" mb={4}>
+                Descripción
               </Heading>
-              <List spacing={3}>
-                {hotel.facilities.map((facility, index) => (
-                  <ListItem key={index}>
-                    <ListIcon as={FiCheck} color="teal.500" />
-                    {facility}
-                  </ListItem>
-                ))}
-              </List>
+              <Text color="gray.600" lineHeight="tall">
+                {hotel.description}
+              </Text>
             </Box>
-            
+
+            {/* Facilities */}
+            {hotel.facilities && hotel.facilities.length > 0 && (
+              <Box mb={8}>
+                <Heading as="h2" fontSize="xl" mb={4}>
+                  Servicios e Instalaciones
+                </Heading>
+                <SimpleGrid columns={{ base: 2, md: 3 }} spacing={4}>
+                  {hotel.facilities.map((facility, index) => (
+                    <Flex key={index} align="center" gap={2}>
+                      <FiCheck color="teal" />
+                      <Text>{facility}</Text>
+                    </Flex>
+                  ))}
+                </SimpleGrid>
+              </Box>
+            )}
+
+            {/* Services */}
+            {hotel.services && hotel.services.length > 0 && (
+              <Box mb={8}>
+                <Heading as="h2" fontSize="xl" mb={4}>
+                  Servicios Adicionales del Hotel
+                </Heading>
+                <List spacing={3}>
+                  {hotel.services.map((service) => (
+                    <ListItem key={service._id}>
+                      <Flex justify="space-between" align="center">
+                        <Flex align="center" gap={2}>
+                          <ListIcon as={FiCheck} color="teal.500" />
+                          <Box>
+                            <Text fontWeight="medium">{service.name}</Text>
+                            <Text fontSize="sm" color="gray.600">{service.description}</Text>
+                          </Box>
+                        </Flex>
+                        <Badge colorScheme="purple">Q {service.price}</Badge>
+                      </Flex>
+                    </ListItem>
+                  ))}
+                </List>
+              </Box>
+            )}
+
             {/* Rooms */}
-            <Box 
-              p={6} 
-              bg={bgColor} 
-              borderRadius="lg" 
-              borderWidth="1px"
-              borderColor={borderColor}
-            >
-              <Heading as="h3" fontSize="xl" mb={4}>
+            <Box mb={8}>
+              <Heading as="h2" fontSize="xl" mb={4}>
                 Habitaciones Disponibles
               </Heading>
-              {!searchParams.checkIn || !searchParams.checkOut ? (
-                <Box textAlign="center" py={6}>
-                  <Text fontSize="lg" color="gray.600">
-                    Por favor, selecciona las fechas de entrada y salida para ver las habitaciones disponibles
-                  </Text>
-                </Box>
-              ) : filteredRooms.length === 0 ? (
-                <Box textAlign="center" py={6}>
-                  <Text fontSize="lg" color="gray.600">
-                    No hay habitaciones disponibles para las fechas seleccionadas
-                  </Text>
-                  <Text fontSize="sm" color="gray.500" mt={2}>
-                    {searchParams.guests > 1 
-                      ? `Para ${searchParams.guests} huéspedes del ${searchParams.checkIn} al ${searchParams.checkOut}`
-                      : `Para ${searchParams.guests} huésped del ${searchParams.checkIn} al ${searchParams.checkOut}`
-                    }
-                  </Text>
-                </Box>
+              {filteredRooms.length === 0 ? (
+                <Text color="gray.600">
+                  No hay habitaciones disponibles para los criterios seleccionados.
+                </Text>
               ) : (
                 <Stack spacing={4}>
-                  {filteredRooms.map(room => (
+                  {filteredRooms.map((room) => (
                     <Box 
-                      key={room._id}
-                      p={4}
+                      key={room._id || room.uid}
+                      p={5} 
+                      bg={bgColor} 
+                      borderRadius="lg" 
                       borderWidth="1px"
-                      borderRadius="md"
                       borderColor={borderColor}
-                      _hover={{ borderColor: 'teal.500' }}
+                      _hover={{ borderColor: 'teal.500', shadow: 'sm' }}
                       transition="all 0.2s"
                     >
                       <Flex justify="space-between" align="center" mb={2}>
@@ -289,7 +306,9 @@ function HotelDetail() {
                         </Flex>
                         <Flex align="center" gap={2}>
                           <FiDollarSign />
-                          <Text>Precio por noche: ${room.price_per_night}</Text>
+                          <Text fontWeight="semibold" color="teal.600">
+                            Precio por noche: Q {(room.price_per_night ?? room.price ?? 0).toLocaleString()}
+                          </Text>
                         </Flex>
                       </Stack>
                       <Flex gap={2}>
@@ -300,13 +319,15 @@ function HotelDetail() {
                         >
                           Reservar
                         </Button>
-                        <IconButton
-                          aria-label="Ver galería"
-                          icon={<FiImage />}
-                          colorScheme="blue"
-                          variant="outline"
-                          onClick={() => handleRoomGalleryOpen(room)}
-                        />
+                        {room.images && room.images.length > 0 && (
+                          <IconButton
+                            aria-label="Ver galería"
+                            icon={<FiImage />}
+                            colorScheme="blue"
+                            variant="outline"
+                            onClick={() => handleRoomGalleryOpen(room)}
+                          />
+                        )}
                       </Flex>
                     </Box>
                   ))}
@@ -325,27 +346,28 @@ function HotelDetail() {
               borderColor={borderColor}
               position="sticky"
               top="100px"
+              shadow="sm"
             >
               <Stack spacing={4}>
                 <Box>
-                  <Text fontWeight="medium" mb={1}>
-                    Precio por noche
+                  <Text fontWeight="medium" mb={1} color="gray.600">
+                    Rango de Tarifas
                   </Text>
-                  <Text fontSize="2xl" fontWeight="bold" color="teal.500">
-                    ${hotel.rangeOfPrices.min} - ${hotel.rangeOfPrices.max}
+                  <Text fontSize="2xl" fontWeight="bold" color="teal.600">
+                    Q {hotel.rangeOfPrices?.min || 0} - Q {hotel.rangeOfPrices?.max || 0}
                   </Text>
                 </Box>
                 <Divider />
                 <Box>
-                  <Text fontWeight="medium" mb={1}>
-                    Habitaciones
+                  <Text fontWeight="medium" mb={2} color="gray.600">
+                    Disponibilidad
                   </Text>
-                  <Text>
-                    Disponibles: {hotel.availableRooms}
-                  </Text>
-                  <Text>
-                    Ocupadas: {hotel.busyRooms}
-                  </Text>
+                  <Flex justify="space-between" align="center">
+                    <Text fontSize="sm">Habitaciones Libres:</Text>
+                    <Badge colorScheme="green" fontSize="sm" px={2.5} py={0.5} rounded="md">
+                      {hotel.availableRooms ?? 0} libres
+                    </Badge>
+                  </Flex>
                 </Box>
               </Stack>
             </Box>
@@ -360,7 +382,7 @@ function HotelDetail() {
           <ModalCloseButton />
           <ModalBody p={0}>
             <SimpleGrid columns={{ base: 1, md: 2, lg: 3 }} spacing={4} p={4}>
-              {hotel.images.map((image, index) => (
+              {hotelImages.map((image, index) => (
                 <Box 
                   key={index} 
                   borderRadius="lg" 
@@ -384,7 +406,7 @@ function HotelDetail() {
       <Modal isOpen={isRoomGalleryOpen} onClose={onRoomGalleryClose} size="6xl">
         <ModalOverlay />
         <ModalContent>
-          <ModalHeader>Galería de Imágenes - Habitación {selectedRoom?.type}</ModalHeader>
+          <ModalHeader>Galería de Imágenes - {selectedRoom?.type}</ModalHeader>
           <ModalCloseButton />
           <ModalBody p={0}>
             <SimpleGrid columns={{ base: 1, md: 2, lg: 3 }} spacing={4} p={4}>

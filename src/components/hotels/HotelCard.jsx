@@ -32,6 +32,14 @@ function HotelCard({ hotel }) {
   const rating = parseInt(category)
   
   const cardBg = useColorModeValue('white', 'gray.800')
+  const hotelId = uid || hotel._id
+
+  // Calcular precio mínimo exacto (la habitación más barata real del hotel)
+  const roomPrices = Array.isArray(rooms) 
+    ? rooms.map(r => (typeof r === 'object' ? (r.price_per_night ?? r.price) : null)).filter(p => typeof p === 'number' && p > 0)
+    : []
+  const minPrice = roomPrices.length > 0 ? Math.min(...roomPrices) : (rangeOfPrices?.min || 0)
+  const maxPrice = roomPrices.length > 0 ? Math.max(...roomPrices) : (rangeOfPrices?.max || minPrice)
   
   const handleReserve = () => {
     const params = new URLSearchParams()
@@ -41,7 +49,7 @@ function HotelCard({ hotel }) {
     if (searchParams.guests) params.set('guests', searchParams.guests)
 
     const searchString = params.toString()
-    navigate(`/hotels/${uid}${searchString ? `?${searchString}` : ''}`)
+    navigate(`/hotels/${hotelId}${searchString ? `?${searchString}` : ''}`)
   }
   
   return (
@@ -127,10 +135,10 @@ function HotelCard({ hotel }) {
               Desde
             </Text>
             <Flex align="baseline">
-              <Text fontSize="xl" fontWeight="bold" color="brand.500">
-                ${rangeOfPrices.min}
+              <Text fontSize="xl" fontWeight="black" color="brand.500">
+                Q {minPrice.toLocaleString()}
               </Text>
-              <Text fontSize="sm" color="gray.500" ml={1}>
+              <Text fontSize="xs" color="gray.500" ml={1}>
                 /noche
               </Text>
             </Flex>

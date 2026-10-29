@@ -35,10 +35,15 @@ function SearchBar() {
   }
 
   const validateDates = () => {
-    if (!values.checkIn || !values.checkOut) {
+    // Si no se proporcionaron fechas, permitir búsqueda libre por destino
+    if (!values.checkIn && !values.checkOut) {
+      return true
+    }
+
+    if ((values.checkIn && !values.checkOut) || (!values.checkIn && values.checkOut)) {
       toast({
-        title: "Fechas requeridas",
-        description: "Por favor selecciona las fechas de entrada y salida",
+        title: "Fechas incompletas",
+        description: "Por favor selecciona tanto fecha de entrada como de salida, o déjalas en blanco para buscar en cualquier fecha",
         status: "warning",
         duration: 3000,
         isClosable: true,
@@ -142,12 +147,12 @@ function SearchBar() {
           <Input
             name="checkIn"
             type="date"
+            placeholder="Entrada"
             value={values.checkIn}
             onChange={handleChange}
             bg={bgColor}
             borderColor={borderColor}
             min={new Date().toISOString().split('T')[0]}
-            required
           />
         </InputGroup>
 
@@ -158,12 +163,12 @@ function SearchBar() {
           <Input
             name="checkOut"
             type="date"
+            placeholder="Salida"
             value={values.checkOut}
             onChange={handleChange}
             bg={bgColor}
             borderColor={borderColor}
             min={values.checkIn || new Date().toISOString().split('T')[0]}
-            required
           />
         </InputGroup>
 

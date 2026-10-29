@@ -16,7 +16,7 @@ const HotelDashboard = () => {
   const renderContent = () => {
     switch (activeNavItem) {
       case "Dashboard":
-        return <DashboardContent />;
+        return <DashboardContent setActiveNavItem={setActiveNavItem} />;
       case "Reservations":
         return <ReservationsContent />;
       case "Rooms":

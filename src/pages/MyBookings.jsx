@@ -697,16 +697,17 @@ function MyBookings() {
   const { getReservationsByUser } = useReservation()
   const fetchReservations = async () => {
     const response = await getReservationsByUser()
-    setReservations(response)
+    setReservations(Array.isArray(response) ? response : [])
   }
   
   useEffect(() => {
     fetchReservations()
   }, [])
 
-  const activeBookings = reservations?.filter(booking => booking.status === 'active')
-  const completedBookings = reservations?.filter(booking => booking.status === 'completed')
-  const cancelledBookings = reservations?.filter(booking => booking.status === 'cancelled')
+  const safeReservations = Array.isArray(reservations) ? reservations : []
+  const activeBookings = safeReservations.filter(booking => booking.status === 'active')
+  const completedBookings = safeReservations.filter(booking => booking.status === 'completed')
+  const cancelledBookings = safeReservations.filter(booking => booking.status === 'cancelled')
   
   return (
     <Box pt={24} pb={16}>
@@ -749,7 +750,7 @@ function MyBookings() {
                 <VStack spacing={6} align="stretch">
                   {activeBookings.map(booking => (
                     <BookingCard 
-                      key={booking.uid} 
+                      key={booking.uid || booking._id || booking.id} 
                       booking={booking} 
                       onReservationUpdate={fetchReservations}
                     />
@@ -780,7 +781,7 @@ function MyBookings() {
                 <VStack spacing={6} align="stretch">
                   {completedBookings.map(booking => (
                     <BookingCard 
-                      key={booking.id} 
+                      key={booking.uid || booking._id || booking.id} 
                       booking={booking} 
                       onReservationUpdate={fetchReservations}
                     />
@@ -804,7 +805,7 @@ function MyBookings() {
                 <VStack spacing={6} align="stretch">
                   {cancelledBookings.map(booking => (
                     <BookingCard 
-                      key={booking.id} 
+                      key={booking.uid || booking._id || booking.id} 
                       booking={booking} 
                       onReservationUpdate={fetchReservations}
                     />

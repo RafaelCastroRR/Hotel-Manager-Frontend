@@ -1,6 +1,13 @@
 import { useState } from "react";
-import { saveReservation as saveReservationRequest, getReservations as getReservationsRequest, getReservationsByUser as getReservationsByUserRequest, editReservation as editReservationRequest, deleteReservation as deleteReservationRequest } from "../../services/api";
+import { 
+  saveReservation as saveReservationRequest, 
+  getReservations as getReservationsRequest, 
+  getReservationsByUser as getReservationsByUserRequest, 
+  editReservation as editReservationRequest, 
+  deleteReservation as deleteReservationRequest 
+} from "../../services/api";
 import { useToast } from "@chakra-ui/react";
+
 export const useReservation = () => {
   const [loading, setLoading] = useState(false);
   const toast = useToast();
@@ -8,74 +15,101 @@ export const useReservation = () => {
   const saveReservation = async (data) => {
     setLoading(true);
     const response = await saveReservationRequest(data);
+    
     if (response.error) {
+      const errorMsg = response.e?.response?.data?.msg || 
+                       response.e?.response?.data?.message || 
+                       response.e?.message || 
+                       "Error al realizar la reserva";
       toast({
         title: "Error",
-        description: response.e.response.data.message,
+        description: errorMsg,
         status: "error",
-        duration: 3000,
+        duration: 4000,
         isClosable: true,
       });
+      setLoading(false);
+      return { error: true, message: errorMsg };
     }
+
     toast({
-      title: "Reserva creada",
-      description: "La reserva se ha creado correctamente",
+      title: "¡Reserva Confirmada!",
+      description: "Tu reserva ha sido creada exitosamente.",
       status: "success",
-      duration: 3000,
+      duration: 3500,
       isClosable: true,
     });
     setLoading(false);
-    return response;
+    return response.data || response;
   };
+
   const getReservations = async () => {
     setLoading(true);
     const response = await getReservationsRequest();
     if (response.error) {
+      const errorMsg = response.e?.response?.data?.msg || 
+                       response.e?.response?.data?.message || 
+                       response.e?.message || 
+                       "Error al obtener reservaciones";
       toast({
         title: "Error",
-        description: response.e.response.data.message,
+        description: errorMsg,
         status: "error",
         duration: 3000,
         isClosable: true,
       });
+      setLoading(false);
+      return [];
     }
     
     setLoading(false);
-    return response.reservations;
+    return response.reservations || [];
   };
+
   const getReservationsByUser = async () => {
     setLoading(true);
     const response = await getReservationsByUserRequest();
     if (response.error) {
+      const errorMsg = response.e?.response?.data?.msg || 
+                       response.e?.response?.data?.message || 
+                       response.e?.message || 
+                       "Error al cargar tus reservas";
       toast({
         title: "Error",
-        description: response.e.response.data.message,
+        description: errorMsg,
         status: "error",
         duration: 3000,
         isClosable: true,
       });
+      setLoading(false);
+      return [];
     }
     setLoading(false);
-    return response.reservations;
+    return response.reservations || [];
   };
 
   const editReservation = async (id, data) => {
     setLoading(true);
     const response = await editReservationRequest(id, data);
     if (response.error) {
-      console.log(response)
+      const errorMsg = response.e?.response?.data?.msg || 
+                       response.e?.response?.data?.message || 
+                       response.e?.message || 
+                       "Error al editar la reserva";
       toast({
         title: "Error",
-        description: response.e.response.data.message,
+        description: errorMsg,
         status: "error",
         duration: 3000,
         isClosable: true,
       });
+      setLoading(false);
+      return { error: true, message: errorMsg };
     }
 
     toast({
-      title: "Reserva editada",
-      description: "La reserva se ha editado correctamente",
+      title: "Reserva actualizada",
+      description: "La reserva se ha modificado correctamente.",
       status: "success",
       duration: 3000,
       isClosable: true,
@@ -88,23 +122,39 @@ export const useReservation = () => {
     setLoading(true);
     const response = await deleteReservationRequest(id);
     if (response.error) {
+      const errorMsg = response.e?.response?.data?.msg || 
+                       response.e?.response?.data?.message || 
+                       response.e?.message || 
+                       "Error al cancelar la reserva";
       toast({
         title: "Error",
-        description: response.e.response.data.message,
+        description: errorMsg,
         status: "error",
         duration: 3000,
         isClosable: true,
       });
+      setLoading(false);
+      return { error: true, message: errorMsg };
     }
     toast({
-      title: "Reserva eliminada",
-      description: "La reserva se ha eliminado correctamente",
-      status: "success",
+      title: "Reserva cancelada",
+      description: "La reserva ha sido cancelada correctamente.",
+      status: "info",
       duration: 3000,
       isClosable: true,
     });
     setLoading(false);
     return response;
   };
-  return { saveReservation, loading, getReservations, getReservationsByUser, editReservation, deleteReservation };
+
+  return { 
+    saveReservation, 
+    loading, 
+    getReservations, 
+    getReservationsByUser, 
+    editReservation, 
+    deleteReservation 
+  };
 };
+
+export default useReservation;

@@ -237,6 +237,17 @@ function Header() {
                     <Link as={RouterLink} to="/profile" onClick={onClose}>
                       Mi Perfil
                     </Link>
+                    {(user?.role === 'ADMIN_ROLE' || user?.role === 'MANAGER_ROLE') && (
+                      <Link 
+                        as={RouterLink} 
+                        to={user?.role === 'ADMIN_ROLE' ? '/admin/platform' : '/admin/hotel'} 
+                        onClick={onClose}
+                        color="teal.500"
+                        fontWeight="semibold"
+                      >
+                        Panel de Administración
+                      </Link>
+                    )}
                     <Button 
                       variant="solid" 
                       size="sm" 

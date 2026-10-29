@@ -72,7 +72,9 @@ function Events() {
   });
 
   const activeEvents = filteredEvents.filter((event) => event.estado !== false);
-  const cancelledEvents = filteredEvents.filter((event) => event.estado === false);
+  const approvedEvents = activeEvents.filter((event) => event.aprobacion === "APROBADO");
+  const pendingEvents = activeEvents.filter((event) => !event.aprobacion || event.aprobacion === "PENDIENTE");
+  const cancelledEvents = filteredEvents.filter((event) => event.estado === false || event.aprobacion === "RECHAZADO");
 
   const eventTypes = [
     { value: "", label: "Todos los tipos" },
@@ -128,11 +130,14 @@ function Events() {
 
         <Tabs variant="enclosed" colorScheme="teal">
           <TabList>
-            <Tab>Eventos Activos ({activeEvents.length})</Tab>
-            <Tab>Eventos Cancelados ({cancelledEvents.length})</Tab>
+            <Tab>Todos Activos ({activeEvents.length})</Tab>
+            <Tab>Aprobados ({approvedEvents.length})</Tab>
+            <Tab>En Revisión ({pendingEvents.length})</Tab>
+            <Tab>Cancelados / Rechazados ({cancelledEvents.length})</Tab>
           </TabList>
 
           <TabPanels>
+            {/* Todos Activos */}
             <TabPanel px={0}>
               {activeEvents.length === 0 ? (
                 <Box textAlign="center" py={10} px={6} bg="gray.50" borderRadius="lg">
@@ -156,11 +161,57 @@ function Events() {
               )}
             </TabPanel>
 
+            {/* Aprobados */}
+            <TabPanel px={0}>
+              {approvedEvents.length === 0 ? (
+                <Box textAlign="center" py={10} px={6} bg="gray.50" borderRadius="lg">
+                  <Heading as="h3" fontSize="lg" mb={2}>
+                    No tienes eventos aprobados todavía
+                  </Heading>
+                  <Text color="gray.600">
+                    Los eventos aprobados por el hotel aparecerán aquí.
+                  </Text>
+                </Box>
+              ) : (
+                <SimpleGrid columns={{ base: 1, md: 2 }} spacing={6}>
+                  {approvedEvents.map((event) => (
+                    <EventCard 
+                      key={event._id} 
+                      event={event} 
+                      onEventUpdated={fetchEvents}
+                    />
+                  ))}
+                </SimpleGrid>
+              )}
+            </TabPanel>
+
+            {/* En Revisión */}
+            <TabPanel px={0}>
+              {pendingEvents.length === 0 ? (
+                <Box textAlign="center" py={10} px={6} bg="gray.50" borderRadius="lg">
+                  <Heading as="h3" fontSize="lg" mb={2}>
+                    No tienes eventos en revisión
+                  </Heading>
+                </Box>
+              ) : (
+                <SimpleGrid columns={{ base: 1, md: 2 }} spacing={6}>
+                  {pendingEvents.map((event) => (
+                    <EventCard 
+                      key={event._id} 
+                      event={event} 
+                      onEventUpdated={fetchEvents}
+                    />
+                  ))}
+                </SimpleGrid>
+              )}
+            </TabPanel>
+
+            {/* Cancelados / Rechazados */}
             <TabPanel px={0}>
               {cancelledEvents.length === 0 ? (
                 <Box textAlign="center" py={10} px={6} bg="gray.50" borderRadius="lg">
                   <Heading as="h3" fontSize="lg" mb={2}>
-                    No tienes eventos cancelados
+                    No tienes eventos cancelados o rechazados
                   </Heading>
                 </Box>
               ) : (

@@ -6,7 +6,17 @@ import {
   Divider,
   Text,
   useToast,
-  SimpleGrid, 
+  SimpleGrid,
+  Tabs,
+  TabList,
+  Tab,
+  Badge,
+  HStack,
+  Card,
+  CardBody,
+  Stat,
+  StatLabel,
+  StatNumber,
 } from "@chakra-ui/react";
 import useHotelEvents from "../../../shared/hooks/useHotelEvents";
 
@@ -16,14 +26,6 @@ import EventFormModal from "./EventFormModal";
 import DeleteConfirmationModal from "./DeleteConfirmationModal";
 import EventDetailsModal from "./EventDetailsModal";
 
-const recursosDisponibles = [
-  "Sala Principal",
-  "Proyector",
-  "Equipo de Sonido",
-  "Catering",
-  "WiFi",
-];
-
 const EventsContent = () => {
   const {
     events,
@@ -32,6 +34,7 @@ const EventsContent = () => {
     hotel,
     createEvent,
     updateEvent,
+    updateEventApproval,
     deleteEvent,
     getEventDetails,
     eventDetails,
@@ -42,6 +45,7 @@ const EventsContent = () => {
 
   const [filteredEvents, setFilteredEvents] = useState([]);
   const [searchTerm, setSearchTerm] = useState("");
+  const [approvalTab, setApprovalTab] = useState("TODOS");
   const [statusFilter, setStatusFilter] = useState("Todos los Eventos");
   const [typeFilter, setTypeFilter] = useState("");
   const [sortBy, setSortBy] = useState("date-asc");
@@ -63,104 +67,53 @@ const EventsContent = () => {
   const [selectedEventForDetails, setSelectedEventForDetails] = useState(null);
 
   useEffect(() => {
-    const preparedEvents = events.map(event => ({
-      ...event,
-      status: event.estado ? "Activo" : "Inactivo",
-      location: event.location || "Ubicación no especificada",
-      capacity: event.capacity || "Capacidad no especificada",
-      organizer: event.organizer || "Organizador no especificado"
-    }));
-    filterEvents(searchTerm, statusFilter, typeFilter, sortBy, preparedEvents);
-  }, [events, searchTerm, statusFilter, typeFilter, sortBy]);
+    let list = [...events];
 
-  // Function to apply filters and sorting
-  const filterEvents = (search, status, type, sort, currentEvents) => {
-    let tempFiltered = [...currentEvents];
+    // Filtro por pestaña de aprobación
+    if (approvalTab !== "TODOS") {
+      list = list.filter(e => (e.aprobacion || "PENDIENTE") === approvalTab);
+    }
 
-    if (search) {
-      tempFiltered = tempFiltered.filter(
-        (event) =>
-          event.nombre_evento.toLowerCase().includes(search.toLowerCase()) ||
-          (event.descripcion &&
-            event.descripcion.toLowerCase().includes(search.toLowerCase())) ||
-          (event.tipo_evento &&
-            event.tipo_evento.toLowerCase().includes(search.toLowerCase()))
+    // Filtro por término de búsqueda
+    if (searchTerm) {
+      const term = searchTerm.toLowerCase();
+      list = list.filter(
+        (e) =>
+          e.nombre_evento.toLowerCase().includes(term) ||
+          (e.descripcion && e.descripcion.toLowerCase().includes(term)) ||
+          (e.tipo_evento && e.tipo_evento.toLowerCase().includes(term)) ||
+          (e.user?.nombre && e.user.nombre.toLowerCase().includes(term))
       );
     }
 
-    if (status !== "Todos los Eventos") {
-      tempFiltered = tempFiltered.filter((event) => event.status === status);
+    // Filtro por tipo de evento
+    if (typeFilter) {
+      list = list.filter((e) => e.tipo_evento === typeFilter);
     }
 
-    if (type) {
-      tempFiltered = tempFiltered.filter((event) => event.tipo_evento === type);
-    }
-
-    tempFiltered.sort((a, b) => {
-      switch (sort) {
+    // Ordenamiento
+    list.sort((a, b) => {
+      switch (sortBy) {
         case "date-asc":
           return new Date(a.fecha) - new Date(b.fecha);
         case "date-desc":
           return new Date(b.fecha) - new Date(a.fecha);
         case "name":
           return a.nombre_evento.localeCompare(b.nombre_evento);
-        case "type":
-          return (a.tipo_evento || "").localeCompare(b.tipo_evento || "");
         default:
           return 0;
       }
     });
 
-    setFilteredEvents(tempFiltered);
-  };
+    setFilteredEvents(list);
+  }, [events, searchTerm, approvalTab, typeFilter, sortBy]);
 
-  // Handlers for search, filter, and sort in EventsHeader
-  const handleSearch = (value) => {
-    setSearchTerm(value);
-  };
-
-  const handleStatusFilter = (status) => {
-    setStatusFilter(status);
-  };
-
-  const handleTypeFilter = (type) => {
-    setTypeFilter(type);
-  };
-
-  const handleSort = (value) => {
-    setSortBy(value);
-  };
-
-  // Form handling
-  const handleChange = (e) => {
-    const { name, value, type, checked } = e.target;
-    setForm((prev) => ({
-      ...prev,
-      [name]: type === "checkbox" ? checked : value,
-    }));
-  };
-
-  const handleRecursosChange = (selected) => {
-    setForm((prev) => ({ ...prev, recursos_asignados: selected }));
-  };
+  const pendingCount = events.filter(e => (e.aprobacion || "PENDIENTE") === "PENDIENTE").length;
+  const approvedCount = events.filter(e => e.aprobacion === "APROBADO").length;
+  const rejectedCount = events.filter(e => e.aprobacion === "RECHAZADO").length;
 
   const openAddEventModal = () => {
     resetForm();
-    setIsFormModalOpen(true);
-  };
-
-  const openEditEventModal = (event) => {
-    setEditingEventId(event._id);
-    setForm({
-      nombre_evento: event.nombre_evento || "",
-      descripcion: event.descripcion || "",
-      fecha: event.fecha ? new Date(event.fecha).toISOString().slice(0, 16) : "",
-      recursos_asignados: event.recursos_asignados || [],
-      servicios_adicionales: event.servicios_adicionales || [],
-      tipo_evento: event.tipo_evento || "",
-      estado: event.estado || false,
-      hotel_id: event.hotel_id || ""
-    });
     setIsFormModalOpen(true);
   };
 
@@ -195,29 +148,9 @@ const EventsContent = () => {
 
     let success;
     if (eventId) {
-      // Actualizar evento existente
       success = await updateEvent(eventId, formattedData);
-      if (success) {
-        toast({
-          title: "Evento actualizado",
-          description: "El evento fue actualizado exitosamente.",
-          status: "success",
-          duration: 3000,
-          isClosable: true,
-        });
-      }
     } else {
-      // Crear nuevo evento
       success = await createEvent(formattedData);
-      if (success) {
-        toast({
-          title: "Evento creado",
-          description: "El evento fue creado exitosamente.",
-          status: "success",
-          duration: 3000,
-          isClosable: true,
-        });
-      }
     }
 
     if (success) {
@@ -226,7 +159,6 @@ const EventsContent = () => {
     }
   };
 
-  // Delete handling
   const openDeleteConfirmation = (eventId) => {
     setDeleteTargetEventId(eventId);
     setIsDeleteModalOpen(true);
@@ -241,22 +173,15 @@ const EventsContent = () => {
     if (deleteTargetEventId) {
       const success = await deleteEvent(deleteTargetEventId);
       if (success) {
-        toast({
-          title: "Evento eliminado",
-          status: "info",
-          duration: 3000,
-          isClosable: true,
-        });
-        fetchEvents(hotelId); // Re-fetch events to update the list
+        fetchEvents(hotelId);
       }
       closeDeleteModal();
     }
   };
 
-  // Details handling
   const openDetailsModal = async (eventId) => {
     setSelectedEventForDetails(eventId);
-    await getEventDetails(eventId); // Fetch details
+    await getEventDetails(eventId);
     setIsDetailsModalOpen(true);
   };
 
@@ -266,80 +191,109 @@ const EventsContent = () => {
   };
 
   return (
-    <Box
-      mt={6}
-      p={6}
-      bgGradient="linear(to-r, blue.50, white)"
-      borderRadius="2xl"
-      boxShadow="xl"
-      maxW="container.lg"
-      mx="auto"
-    >
-      <Flex justify="space-between" align="center" mb={6}>
-        <Text
-          fontSize="2xl"
-          fontWeight="extrabold"
-          bgGradient="linear(to-l, #4299E1, #2B6CB0)"
-          bgClip="text"
-          textTransform="uppercase"
-          letterSpacing="wider"
-        >
-          Información del evento
-        </Text>
+    <Box mt={2} p={{ base: 4, md: 6 }}>
+      {/* Encabezado */}
+      <Flex justify="space-between" align="center" mb={6} flexWrap="wrap" gap={3}>
+        <Box>
+          <Text fontSize="2xl" fontWeight="black" color="gray.800">
+            Gestión y Aprobación de Eventos
+          </Text>
+          <Text fontSize="sm" color="gray.600">
+            Revisa, aprueba o rechaza las solicitudes de eventos realizadas por clientes para tu hotel.
+          </Text>
+        </Box>
       </Flex>
 
-      <Box mb={4} px={4}>
-        <Text fontSize="md" color="gray.600" mb={1}>
-          <strong>Hotel ID:</strong> {hotelId || "No disponible"}
-        </Text>
-        {hotel?.nombre && (
-          <Text fontSize="md" color="gray.600" mb={1}>
-            <strong>Nombre del hotel:</strong> {hotel.nombre}
-          </Text>
-        )}
-      </Box>
+      {/* Tarjetas de Resumen de Aprobación */}
+      <SimpleGrid columns={{ base: 1, sm: 3 }} spacing={4} mb={6}>
+        <Card bg="white" shadow="sm" borderWidth="1px" borderColor="yellow.200" rounded="lg">
+          <CardBody p={4}>
+            <Stat>
+              <StatLabel color="yellow.700" fontWeight="bold">Pendientes de Aprobación</StatLabel>
+              <StatNumber color="yellow.500" fontSize="3xl">{pendingCount}</StatNumber>
+              <Text fontSize="xs" color="gray.500">Requieren tu confirmación</Text>
+            </Stat>
+          </CardBody>
+        </Card>
 
-      <Divider borderColor="blue.200" mb={6} />
+        <Card bg="white" shadow="sm" borderWidth="1px" borderColor="green.200" rounded="lg">
+          <CardBody p={4}>
+            <Stat>
+              <StatLabel color="green.700" fontWeight="bold">Eventos Aprobados</StatLabel>
+              <StatNumber color="green.500" fontSize="3xl">{approvedCount}</StatNumber>
+              <Text fontSize="xs" color="gray.500">Confirmados y reservados</Text>
+            </Stat>
+          </CardBody>
+        </Card>
+
+        <Card bg="white" shadow="sm" borderWidth="1px" borderColor="gray.200" rounded="lg">
+          <CardBody p={4}>
+            <Stat>
+              <StatLabel color="gray.700" fontWeight="bold">Total de Solicitudes</StatLabel>
+              <StatNumber color="blue.600" fontSize="3xl">{events.length}</StatNumber>
+              <Text fontSize="xs" color="gray.500">Histórico del hotel</Text>
+            </Stat>
+          </CardBody>
+        </Card>
+      </SimpleGrid>
+
+      {/* Pestañas de Aprobación */}
+      <Tabs 
+        variant="soft-rounded" 
+        colorScheme="teal" 
+        mb={5}
+        onChange={(index) => {
+          const map = ["TODOS", "PENDIENTE", "APROBADO", "RECHAZADO"];
+          setApprovalTab(map[index] || "TODOS");
+        }}
+      >
+        <TabList gap={2} flexWrap="wrap">
+          <Tab fontWeight="semibold">Todos ({events.length})</Tab>
+          <Tab fontWeight="semibold">
+            Pendientes
+            {pendingCount > 0 && (
+              <Badge ml={2} colorScheme="yellow" rounded="full" px={2}>
+                {pendingCount}
+              </Badge>
+            )}
+          </Tab>
+          <Tab fontWeight="semibold">Aprobados ({approvedCount})</Tab>
+          <Tab fontWeight="semibold">Rechazados ({rejectedCount})</Tab>
+        </TabList>
+      </Tabs>
 
       <EventsHeader
         searchTerm={searchTerm}
-        handleSearch={handleSearch}
+        handleSearch={setSearchTerm}
         statusFilter={statusFilter}
-        handleStatusFilter={handleStatusFilter}
+        handleStatusFilter={setStatusFilter}
         typeFilter={typeFilter}
-        handleTypeFilter={handleTypeFilter}
+        handleTypeFilter={setTypeFilter}
         sortBy={sortBy}
-        handleSort={handleSort}
+        handleSort={setSortBy}
         onAddEvent={openAddEventModal}
       />
 
       {loading ? (
         <Flex justify="center" align="center" minH="250px">
-          <Spinner size="xl" thickness="5px" speed="0.7s" color="blue.500" />
+          <Spinner size="xl" thickness="4px" speed="0.7s" color="teal.500" />
         </Flex>
       ) : filteredEvents.length === 0 ? (
-        <Text
-          mt={6}
-          textAlign="center"
-          color="gray.400"
-          fontWeight="semibold"
-          fontSize="lg"
-          letterSpacing="wider"
-        >
-          No hay eventos disponibles para mostrar.
-        </Text>
+        <Card bg="white" p={8} textAlign="center" rounded="lg" borderWidth="1px" borderColor="gray.200">
+          <Text color="gray.500" fontSize="md">
+            No se encontraron eventos en este criterio de búsqueda o estado de aprobación.
+          </Text>
+        </Card>
       ) : (
         <SimpleGrid columns={{ base: 1, md: 2, lg: 3 }} spacing={6}>
           {filteredEvents.map((event) => (
             <EventCard
               key={event._id}
-              event={{
-                ...event,
-                status: event.estado ? "Activo" : "Inactivo"
-              }}
+              event={event}
               onEdit={handleSubmit}
               onDelete={openDeleteConfirmation}
               onDetails={openDetailsModal}
+              onApprove={updateEventApproval}
             />
           ))}
         </SimpleGrid>
@@ -362,10 +316,7 @@ const EventsContent = () => {
       <EventDetailsModal
         isOpen={isDetailsModalOpen}
         onClose={closeDetailsModal}
-        eventDetails={eventDetails ? {
-          ...eventDetails,
-          status: eventDetails.estado ? "Activo" : "Inactivo"
-        } : null}
+        eventDetails={eventDetails}
         loadingDetails={loading}
       />
     </Box>

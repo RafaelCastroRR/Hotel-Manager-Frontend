@@ -13,7 +13,6 @@
 Interfaz web moderna, reactiva y elegante para la plataforma de gestión hotelera **QuickStay**. Proporciona una experiencia de usuario fluida inspirada en plataformas como Booking y Trivago, permitiendo explorar hoteles, consultar disponibilidad en tiempo real, reservar habitaciones, programar eventos y administrar sucursales a través de dashboards especializados por rol.
 
 > 👥 **Proyecto Colaborativo / En Equipo**  
-> Desarrollado y mejorado como trabajo de equipo por **Rafael Castro** y **Cristian Lima**.  
 > Repositorio base original: [CristiannLimaR/Hotel-Manager-Frontend](https://github.com/CristiannLimaR/Hotel-Manager-Frontend).
 
 ---
@@ -103,11 +102,6 @@ Este frontend se conecta con la API RESTful:
 👉 **[Hotel-manager-Backend](https://github.com/RafaelCastroRR/Hotel-manager-Backend)**
 
 ---
-
-## 👥 Equipo de Desarrollo
-
-- **Rafael Castro** ([@RafaelCastroRR](https://github.com/RafaelCastroRR))
-- **Cristian Lima** ([@CristiannLimaR](https://github.com/CristiannLimaR))
 
 ## 📄 Licencia
 Este proyecto es desarrollado con fines educativos y de demostración técnica.

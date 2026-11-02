@@ -174,7 +174,7 @@ const InvoicesContent = () => {
     <Box>
       <HStack justify="space-between" mb={6}>
         <HStack>
-          <InputGroup w="300px">
+          <InputGroup w={{ base: "full", sm: "300px" }}>
             <InputLeftElement pointerEvents="none">
               <Icon as={FiSearch} color="gray.400" />
             </InputLeftElement>

@@ -233,7 +233,7 @@ function HotelDetail() {
                 <Heading as="h2" fontSize="xl" mb={4}>
                   Servicios e Instalaciones
                 </Heading>
-                <SimpleGrid columns={{ base: 2, md: 3 }} spacing={4}>
+                <SimpleGrid columns={{ base: 1, sm: 2, md: 3 }} spacing={4}>
                   {hotel.facilities.map((facility, index) => (
                     <Flex key={index} align="center" gap={2}>
                       <FiCheck color="teal" />

@@ -234,7 +234,7 @@ const RoomsContent = () => {
   };
 
   return (
-    <Box p={6}>
+    <Box p={{ base: 0, md: 2 }}>
       <HStack justify="space-between" mb={6} flexWrap="wrap">
         <HStack spacing={3} flexWrap="wrap">
           <InputGroup w={{ base: "full", md: "300px" }}>
@@ -322,7 +322,7 @@ const RoomsContent = () => {
           No hay habitaciones disponibles.
         </Text>
       ) : (
-        <Grid templateColumns="repeat(auto-fill, minmax(300px, 1fr))" gap={6}>
+        <Grid templateColumns="repeat(auto-fill, minmax(260px, 1fr))" gap={6}>
           {filteredRooms.map((room) => (
             <RoomCard
               key={room.uid}

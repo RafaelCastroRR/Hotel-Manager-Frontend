@@ -44,7 +44,7 @@ const ReportsContent = () => {
 
 
   return (
-    <Box p={4} ml={{ base: 0, md: 60 }}>
+    <Box p={{ base: 0, md: 2 }}>
       <Heading mb={6}>Reportes Avanzados</Heading>
       <Divider my={8} borderColor="gray.300" />
 

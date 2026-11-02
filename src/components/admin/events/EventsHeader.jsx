@@ -1,6 +1,5 @@
 import {
-  Box,
-  HStack,
+  Flex,
   Input,
   InputGroup,
   InputLeftElement,
@@ -37,9 +36,9 @@ const EventsHeader = ({
   ];
 
   return (
-    <HStack justify="space-between" mb={6}>
-      <HStack>
-        <InputGroup w="300px">
+    <Flex justify="space-between" align={{ base: "stretch", lg: "center" }} direction={{ base: "column", lg: "row" }} gap={4} mb={6}>
+      <Flex gap={3} flexWrap="wrap" direction={{ base: "column", sm: "row" }} flex="1">
+        <InputGroup w={{ base: "full", sm: "260px" }}>
           <InputLeftElement pointerEvents="none">
             <Icon as={FiSearch} color="gray.400" />
           </InputLeftElement>
@@ -51,7 +50,7 @@ const EventsHeader = ({
           />
         </InputGroup>
         <Menu>
-          <MenuButton as={Button} rightIcon={<FiFilter />} variant="outline">
+          <MenuButton as={Button} rightIcon={<FiFilter />} variant="outline" w={{ base: "full", sm: "auto" }}>
             Estado: {statusFilter}
           </MenuButton>
           <MenuList>
@@ -68,7 +67,7 @@ const EventsHeader = ({
         </Menu>
         <Select
           placeholder="Tipo de evento"
-          w="180px"
+          w={{ base: "full", sm: "180px" }}
           value={typeFilter}
           onChange={(e) => handleTypeFilter(e.target.value)}
         >
@@ -80,7 +79,7 @@ const EventsHeader = ({
         </Select>
         <Select
           placeholder="Ordenar por"
-          w="180px"
+          w={{ base: "full", sm: "180px" }}
           value={sortBy}
           onChange={(e) => handleSort(e.target.value)}
         >
@@ -89,11 +88,11 @@ const EventsHeader = ({
           <option value="name">Nombre del Evento</option>
           <option value="type">Tipo de Evento</option>
         </Select>
-      </HStack>
-      <Button colorScheme="blue" leftIcon={<FiPlus />} onClick={onAddEvent}>
+      </Flex>
+      <Button colorScheme="blue" leftIcon={<FiPlus />} onClick={onAddEvent} w={{ base: "full", lg: "auto" }}>
         Nuevo Evento
       </Button>
-    </HStack>
+    </Flex>
   );
 };
 

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Box, Flex } from "@chakra-ui/react";
+import { Box, Flex, useDisclosure } from "@chakra-ui/react";
 import Sidebar from "../../components/admin/layout/Sidebar";
 import Header from "../../components/admin/layout/Header";
 import DashboardContent from "../../components/admin/dashboard/DashboardContent";
@@ -10,8 +10,10 @@ import InvoicesContent from "../../components/admin/invoices/InvoicesContent";
 import ServicesContent from "../../components/admin/services/ServicesContent";
 import ReportsContent from "../../components/admin/platform/ReportsContent";
 import UsersContent from "../../components/admin/users/UsersContent";
+
 const HotelDashboard = () => {
   const [activeNavItem, setActiveNavItem] = useState("Dashboard");
+  const { isOpen, onOpen, onClose } = useDisclosure();
 
   const renderContent = () => {
     switch (activeNavItem) {
@@ -34,21 +36,26 @@ const HotelDashboard = () => {
       case "Logout":
         return <DashboardContent />;
       case "Reportes":
-        return <ReportsContent/>
+        return <ReportsContent />;
       case "Usuarios":
-        return <UsersContent/>
+        return <UsersContent />;
       default:
         return <DashboardContent />;
     }
   };
 
   return (
-    <Box minH="100vh" bg="gray.50">
+    <Box minH="100vh" bg="gray.50" overflowX="hidden">
       <Flex>
-        <Sidebar activeNavItem={activeNavItem} setActiveNavItem={setActiveNavItem} />
-        <Box flex="1" ml="240px">
-          <Header activeNavItem={activeNavItem} />
-          <Box p={8}>
+        <Sidebar
+          activeNavItem={activeNavItem}
+          setActiveNavItem={setActiveNavItem}
+          isOpen={isOpen}
+          onClose={onClose}
+        />
+        <Box flex="1" ml={{ base: 0, lg: "256px" }} minW={0} w="full">
+          <Header activeNavItem={activeNavItem} onOpenMenu={onOpen} />
+          <Box p={{ base: 4, md: 6, lg: 8 }}>
             {renderContent()}
           </Box>
         </Box>

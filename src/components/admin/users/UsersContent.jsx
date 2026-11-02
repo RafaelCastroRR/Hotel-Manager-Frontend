@@ -98,12 +98,12 @@ const UsersContent = () => {
       </Flex>
 
       <Card>
-        <Flex gap={4} mb={4}>
+        <Flex gap={4} mb={4} direction={{ base: "column", sm: "row" }}>
           <Input
             placeholder="Buscar usuarios..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            maxW="300px"
+            maxW={{ base: "full", sm: "300px" }}
           />
           <Select
             value={roleFilter}

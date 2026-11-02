@@ -99,7 +99,7 @@ function Events() {
           </Text>
         </Box>
 
-        <Flex justify="space-between" align="center" mb={6}>
+        <Flex justify="space-between" align={{ base: "stretch", md: "center" }} direction={{ base: "column", md: "row" }} gap={4} mb={6}>
           <Flex gap={4} flex={1} mr={4}>
             <InputGroup maxW="300px">
               <InputLeftElement pointerEvents="none">

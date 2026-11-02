@@ -102,7 +102,7 @@ const HotelsContent = () => {
 
   return (
     <Box>
-      <Flex justify="space-between" align="center" mb={6}>
+      <Flex justify="space-between" align={{ base: "stretch", sm: "center" }} direction={{ base: "column", sm: "row" }} gap={3} mb={6}>
         <Heading>Gestión de Hoteles</Heading>
         <Button colorScheme="blue" onClick={onOpen} isLoading={isLoading}>
           Nuevo Hotel
@@ -111,7 +111,7 @@ const HotelsContent = () => {
 
       <Card>
         <CardHeader>
-          <Flex gap={4} mb={4}>
+          <Flex gap={4} mb={4} direction={{ base: "column", sm: "row" }}>
             <Input
               placeholder="Buscar hoteles..."
               value={searchTerm}
@@ -121,7 +121,7 @@ const HotelsContent = () => {
             <Select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
-              maxW="200px"
+              maxW={{ base: "full", sm: "200px" }}
             >
               <option value="all">Todos los estados</option>
               <option value="active">Activo</option>

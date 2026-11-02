@@ -498,7 +498,7 @@ function BookingCard({ booking, onReservationUpdate }) {
                       inline
                       minDate={new Date()}
                       excludeDates={getDisabledDates()}
-                      monthsShown={2}
+                      monthsShown={1}
                       locale={es}
                       dateFormat="dd/MM/yyyy"
                       showPopperArrow={false}
@@ -721,7 +721,7 @@ function MyBookings() {
         </Text>
         
         <Tabs colorScheme="teal" isLazy>
-          <TabList mb={6}>
+          <TabList mb={6} overflowX="auto" flexWrap="wrap">
             <Tab fontWeight="medium">Activas ({activeBookings.length})</Tab>
             <Tab fontWeight="medium">Completadas ({completedBookings.length})</Tab>
             <Tab fontWeight="medium">Canceladas ({cancelledBookings.length})</Tab>

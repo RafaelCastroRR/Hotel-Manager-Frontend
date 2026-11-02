@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import {
   Box,
+  Flex,
   HStack,
   Input,
   InputGroup,
@@ -840,7 +841,7 @@ const ReservationsContent = () => {
                         selectsRange
                         inline
                         minDate={new Date()}
-                        monthsShown={2}
+                        monthsShown={1}
                         locale={es}
                         dateFormat="dd/MM/yyyy"
                         showPopperArrow={false}
@@ -1003,7 +1004,7 @@ const ReservationsContent = () => {
                       selectsRange
                       inline
                       minDate={new Date()}
-                      monthsShown={2}
+                      monthsShown={1}
                       locale={es}
                       dateFormat="dd/MM/yyyy"
                       showPopperArrow={false}

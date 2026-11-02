@@ -98,7 +98,7 @@ const DashboardContent = ({ setActiveNavItem }) => {
       <Card overflow="hidden" mb={8} shadow="md" rounded="2xl" border="1px" borderColor="gray.200">
         <Box 
           position="relative" 
-          h={{ base: "180px", md: "240px" }}
+          minH={{ base: "240px", md: "240px" }}
           bgImage={`url('${hotelImage}')`}
           bgPosition="center"
           bgSize="cover"

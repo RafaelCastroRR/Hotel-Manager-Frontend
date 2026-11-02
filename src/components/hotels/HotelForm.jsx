@@ -210,8 +210,8 @@ import {
   
     return (
       <Box as="form" onSubmit={handleSubmit(onSubmit)}>
-        <Grid templateColumns="repeat(2, 1fr)" gap={6}>
-          <GridItem colSpan={2}>
+        <Grid templateColumns={{ base: "1fr", md: "repeat(2, 1fr)" }} gap={6}>
+          <GridItem colSpan={{ base: 1, md: 2 }}>
             <FormControl isRequired isInvalid={errors.name}>
               <FormLabel>Nombre</FormLabel>
               <Input
@@ -234,7 +234,7 @@ import {
             </FormControl>
           </GridItem>
 
-          <GridItem colSpan={2}>
+          <GridItem colSpan={{ base: 1, md: 2 }}>
             <FormControl isRequired isInvalid={errors.direction}>
               <FormLabel>Dirección</FormLabel>
               <Textarea
@@ -257,7 +257,7 @@ import {
             </FormControl>
           </GridItem>
 
-          <GridItem colSpan={2}>
+          <GridItem colSpan={{ base: 1, md: 2 }}>
             <FormControl isRequired isInvalid={errors.location}>
               <FormLabel>Ubicación</FormLabel>
               <Input
@@ -346,7 +346,7 @@ import {
             </FormControl>
           </GridItem>
 
-          <GridItem colSpan={2}>
+          <GridItem colSpan={{ base: 1, md: 2 }}>
             <FormControl isRequired isInvalid={!selectedAdmin}>
               <FormLabel>Administrador</FormLabel>
               <AdminSearch
@@ -361,7 +361,7 @@ import {
             </FormControl>
           </GridItem>
 
-          <GridItem colSpan={2}>
+          <GridItem colSpan={{ base: 1, md: 2 }}>
             <FormControl isInvalid={errors.facilities}>
               <FormLabel>Instalaciones</FormLabel>
               <SimpleGrid columns={[2, 3, 4]} spacing={2}>
@@ -381,7 +381,7 @@ import {
             </FormControl>
           </GridItem>
 
-          <GridItem colSpan={2}>
+          <GridItem colSpan={{ base: 1, md: 2 }}>
             <FormControl >
               <FormLabel>Imágenes</FormLabel>
               <VStack spacing={4} align="stretch">
@@ -407,7 +407,7 @@ import {
                 </Box>
 
                 {(existingImages.length > 0 || previewUrls.length > 0) && (
-                  <SimpleGrid columns={[2, 3, 4]} spacing={4}>
+                  <SimpleGrid columns={{ base: 1, sm: 2, md: 3 }} spacing={3}>
                     {existingImages.map((img, index) => (
                       <Box key={`existing-${index}`} position="relative">
                         <Image
@@ -459,7 +459,7 @@ import {
             </FormControl>
           </GridItem>
 
-          <GridItem colSpan={2}>
+          <GridItem colSpan={{ base: 1, md: 2 }}>
             <Button 
               colorScheme="teal" 
               type="submit" 

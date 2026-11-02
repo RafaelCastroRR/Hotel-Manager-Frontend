@@ -120,13 +120,14 @@ function SearchBar() {
   }
 
   return (
-    <Box as="form" onSubmit={handleSubmit}>
+    <Box as="form" onSubmit={handleSubmit} w="full">
       <Stack
         direction={{ base: 'column', md: 'row' }}
         spacing={4}
-        align="center"
+        align={{ base: 'stretch', md: 'center' }}
+        w="full"
       >
-        <InputGroup>
+        <InputGroup w="full">
           <InputLeftElement pointerEvents="none">
             <FiMapPin color="gray.300" />
           </InputLeftElement>
@@ -137,10 +138,11 @@ function SearchBar() {
             onChange={handleChange}
             bg={bgColor}
             borderColor={borderColor}
+            w="full"
           />
         </InputGroup>
 
-        <InputGroup>
+        <InputGroup w="full">
           <InputLeftElement pointerEvents="none">
             <FiCalendar color="gray.300" />
           </InputLeftElement>
@@ -153,10 +155,11 @@ function SearchBar() {
             bg={bgColor}
             borderColor={borderColor}
             min={new Date().toISOString().split('T')[0]}
+            w="full"
           />
         </InputGroup>
 
-        <InputGroup>
+        <InputGroup w="full">
           <InputLeftElement pointerEvents="none">
             <FiCalendar color="gray.300" />
           </InputLeftElement>
@@ -169,10 +172,11 @@ function SearchBar() {
             bg={bgColor}
             borderColor={borderColor}
             min={values.checkIn || new Date().toISOString().split('T')[0]}
+            w="full"
           />
         </InputGroup>
 
-        <InputGroup>
+        <InputGroup w="full">
           <InputLeftElement pointerEvents="none">
             <FiUsers color="gray.300" />
           </InputLeftElement>
@@ -186,6 +190,7 @@ function SearchBar() {
             bg={bgColor}
             borderColor={borderColor}
             required
+            w="full"
           />
         </InputGroup>
 
@@ -194,6 +199,7 @@ function SearchBar() {
           colorScheme="teal"
           px={8}
           w={{ base: 'full', md: 'auto' }}
+          flexShrink={0}
         >
           Buscar
         </Button>

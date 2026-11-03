@@ -8,6 +8,7 @@ import NotFound from "./pages/NotFound";
 import ProtectedRoute from "./components/routes/ProtectedRoute";
 import AdminRoute from "./components/routes/AdminRoute";
 import ManagerRoute from "./components/routes/ManagerRoute";
+import DemoCredentialsBanner from "./components/common/DemoCredentialsBanner";
 
 import { publicRoutes, protectedRoutes, adminRoutes, managerRoutes } from "./routes/routesConfig.jsx";
 import theme from './theme'
@@ -21,6 +22,7 @@ export default function App() {
     <ChakraProvider theme={theme}>
       <SearchProvider>
         <Box minH="100vh">
+          <DemoCredentialsBanner />
           <Routes>
             <Route path="/" element={<Layout />}>
               {publicRoutes.map(({ path, element }) => (

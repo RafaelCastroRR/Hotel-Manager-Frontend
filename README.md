@@ -17,6 +17,40 @@ Interfaz web moderna, reactiva y elegante para la plataforma de gestión hoteler
 
 ---
 
+## 👥 Cuentas de Prueba para Testing (Credenciales de Demostración)
+
+Para evaluar y probar todos los flujos de la plataforma (reservas, administración de hoteles y portal de clientes), se han preconfigurado las siguientes cuentas activas:
+
+> 🔑 **Contraseña para todas las cuentas de prueba:** `1234567`
+
+### 🛡️ 1. Administrador de la Plataforma (Platform Admin)
+| Nombre | Correo Electrónico | Contraseña | Rol | Acceso y Permisos |
+|---|---|---|---|---|
+| **Administrador General** | `admin@admin.com` | `1234567` | `ADMIN_ROLE` | Control global de la plataforma, creación de hoteles, estadísticas y asignación de managers |
+
+---
+
+### 💼 2. Administradores de Hotel (Hotel Managers)
+Permiten gestionar inventario de habitaciones, amenidades, tarifas y eventos asignados a sus sucursales:
+
+| Nombre | Correo Electrónico | Contraseña | Rol | Hotel Asignado |
+|---|---|---|---|---|
+| **Carlos Morales** | `carlos.morales@hotelguatemala.com` | `1234567` | `MANAGER_ROLE` | Grand Hotel Tikal Futura |
+| **Sofía Álvarez** | `sofia.alvarez@hotelguatemala.com` | `1234567` | `MANAGER_ROLE` | Hotel Boutique & Spa Antigua Colonial |
+| **Mateo Castillo** | `mateo.castillo@hotelguatemala.com` | `1234567` | `MANAGER_ROLE` | Porta Hotel & Eco-Lodge Del Lago Atitlán |
+
+---
+
+### 👤 3. Clientes / Huéspedes (Portal de Usuario)
+Permiten explorar habitaciones, reservar estadías, solicitar servicios adicionales y descargar facturas:
+
+| Nombre | Correo Electrónico | Contraseña | Rol | Funcionalidad |
+|---|---|---|---|---|
+| **Andrea Gómez** | `andrea.gomez@gmail.com` | `1234567` | `USER_ROLE` | Catálogo de hoteles, reservas activas y facturas |
+| **Luis Fernando Pérez** | `luis.perez@gmail.com` | `1234567` | `USER_ROLE` | Reservas y eventos |
+
+---
+
 ## ✨ Funcionalidades Principales
 
 ### 🌐 Para Clientes y Usuarios Generales
